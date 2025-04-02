@@ -1,43 +1,67 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  FilesetResolver,
-  PoseLandmarker,
-  DrawingUtils,
-} from "@mediapipe/tasks-vision";
 
 // ui
 import { FileUpload } from "@/components/ui/file-upload";
 import { Button } from "@/components/ui/button";
 
-// components
+// redux toolkit
+// import { useDispatch } from "react-redux";
+
+// context
+import { useVideo } from "@/context/VideoContext";
 
 const Main = () => {
   const router = useRouter();
-  const [file, setFile] = useState<File>();
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  // const dispatch = useDispatch();
+  const { setVideo, videoUrl, encodedVideoUrl, videoBlob, videoName } = useVideo();
 
-  const handleFileUpload = (file: File) => {
+  const [file, setFile] = useState<File>();
+  // const [encodedVideoUrl, setEncodedVideoUrl] = useState<string | null>(null);
+
+  const handleFileUpload = async (file: File): Promise<void> => {
     setFile(file);
     console.log(file);
 
-    if (file) {
-      const url = URL.createObjectURL(file);
-      const encodedBlobUrl = encodeURIComponent(url);
-      setBlobUrl(encodedBlobUrl);
+    // Use the context to set the video
+    await setVideo(file);
+
+    if (videoUrl && encodedVideoUrl && videoBlob && videoName) { 
+      // setEncodedVideoUrl(videoUrl);
+      console.table({
+        'videoBlob': videoBlob,
+        'videoUrl': videoUrl,
+        'encodedVideoUrl': encodedVideoUrl,
+        'videoName': videoName,
+      });
     }
+
+    // const arrayBuffer = await file.arrayBuffer();
+    // dispatch(
+    //   setVideo({
+    //     data: arrayBuffer,
+    //     fileName: file.name,
+    //   })
+    // );
+    // if (file) {
+    //   const blob = new Blob([arrayBuffer], { type: file.type });
+    //   const url = URL.createObjectURL(blob);
+    //   const encodedBlobUrl = encodeURIComponent(url);
+    //   setBlobUrl(encodedBlobUrl);
+    // }
   };
 
   return (
     <div className="flex flex-col items-center justify-center w-full h-full">
       <FileUpload onChange={handleFileUpload} />
       <div className="flex justify-center items-center">
-        {file && blobUrl && (
+        {file && encodedVideoUrl && (
           <Button
             className=" cursor-pointer"
-            onClick={() => blobUrl && router.push(`/playground/${blobUrl}`)}
+            onClick={() =>
+              encodedVideoUrl && router.push(`/playground/${encodedVideoUrl}`)
+            }
           >
             Start Motion Tracking
           </Button>
