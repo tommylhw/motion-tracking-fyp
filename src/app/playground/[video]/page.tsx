@@ -7,7 +7,6 @@ import {
   DrawingUtils,
 } from "@mediapipe/tasks-vision";
 import { PulseLoader } from "react-spinners";
-import Webcam from "react-webcam";
 
 // ui
 import { Button } from "@/components/ui/button";
@@ -29,7 +28,7 @@ import { useVideo } from "@/context/VideoContext";
 import { FaPause, FaPlay, FaStop } from "react-icons/fa";
 import { CiPlay1, CiPause1 } from "react-icons/ci";
 import { RiSpeedUpFill } from "react-icons/ri";
-import { FpsChart } from "@/app/components/FpsChart";
+import { FpsChart } from "@/components/FpsChart";
 
 const page = ({ params }: { params: Promise<{ video: string }> }) => {
   const router = useRouter();
@@ -875,7 +874,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
 
     setTimeout(() => {
       initialize();
-    }, 2000);
+    }, 1000);
 
     return () => {
       if (videoRafIdRef.current) cancelAnimationFrame(videoRafIdRef.current);
@@ -1008,7 +1007,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           </div>
           {/* Video and Webcam controls */}
           <div className="w-full flex justify-center items-center gap-2 mt-1">
-            <div className="w-[50%] flex justify-between items-center gap-2 bg-[#F4F4F5] rounded-md px-[6px]">
+            <div className="w-[50%] h-full flex justify-between items-center gap-2 bg-custom-surface rounded-md px-[6px] border-1">
               <div>
                 {videoPlaying ? (
                   <Button
@@ -1079,7 +1078,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
                 />
               </div>
             </div>
-            <div className="w-[50%] flex justify-start items-center gap-2">
+            <div className="w-[50%] h-full flex justify-start items-center gap-2">
               {/* <p className="text-custom-on-surface-container">Webcam:</p> */}
               {webcamDevices && (
                 <Select

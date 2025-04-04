@@ -7,9 +7,9 @@ import {
 } from "@mediapipe/tasks-vision";
 
 // components
-import WebcamTracking from "./components/WebcamTracking";
-import VideoTracking from "./components/VideoTracking";
-import Main from "./components/Main";
+import WebcamTracking from "../components/WebcamTracking";
+import VideoTracking from "../components/VideoTracking";
+import Main from "../components/Main";
 
 export default function Home() {
   return (

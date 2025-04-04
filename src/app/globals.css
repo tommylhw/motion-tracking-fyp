@@ -92,13 +92,13 @@
   /* custom colors */
   --custom-primary: rgba(121, 192, 255, 1);
   --custom-secondary: rgba(242, 165, 88, 1);
-  --custom-container-dark: "rgba(40, 41, 43, 1)";
-  --custom-on-container-dark: "rgba(246, 248, 250, 1)";
-  --custom-surface: "#F4F4F5";
-  --custom-on-surface: "rgba(152, 152, 154, 1)";
-  --custom-surface-container: "rgba(234, 234, 234, 1)";
-  --custom-on-surface-container: "rgba(122, 122, 122, 1)";
-  --custom-black: "rgba(24, 23, 26, 1)";
+  --custom-container-dark: rgba(40, 41, 43, 1);
+  --custom-on-container-dark: rgba(246, 248, 250, 1);
+  --custom-surface: rgba(244, 244, 245, 1);
+  --custom-on-surface: rgba(152, 152, 154, 1);
+  --custom-surface-container: rgba(234, 234, 234, 1);
+  --custom-on-surface-container: rgba(122, 122, 122, 1);
+  --custom-black: rgba(24, 23, 26, 1);
 }
 
 .dark {
@@ -137,13 +137,13 @@
   /* custom colors */
   --custom-primary: rgba(121, 192, 255, 1);
   --custom-secondary: rgba(242, 165, 88, 1);
-  --custom-container-dark: "rgba(40, 41, 43, 1)";
-  --custom-on-container-dark: "rgba(246, 248, 250, 1)";
-  --custom-surface: "#F4F4F5";
-  --custom-on-surface: "rgba(152, 152, 154, 1)";
-  --custom-surface-container: "rgba(234, 234, 234, 1)";
-  --custom-on-surface-container: "rgba(122, 122, 122, 1)";
-  --custom-black: "rgba(24, 23, 26, 1)";
+  --custom-container-dark: rgba(40, 41, 43, 1);
+  --custom-on-container-dark: rgba(246, 248, 250, 1);
+  --custom-surface: rgba(244, 244, 245, 1);
+  --custom-on-surface: rgba(152, 152, 154, 1);
+  --custom-surface-container: rgba(234, 234, 234, 1);
+  --custom-on-surface-container: rgba(122, 122, 122, 1);
+  --custom-black: rgba(24, 23, 26, 1);
 }
 
 @layer base {
@@ -153,4 +153,23 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Customize scrollbar */
+::-webkit-scrollbar {
+  width: 6px; /* Scrollbar width */
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f0f0; /* Scrollbar track */
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--custom-on-surface); /* Scrollbar thumb */
+  border-radius: 10px; /* Border radius */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555; /* Hover effect */
 }
