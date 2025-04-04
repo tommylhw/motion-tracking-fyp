@@ -94,11 +94,11 @@
   --custom-secondary: rgba(242, 165, 88, 1);
   --custom-container-dark: "rgba(40, 41, 43, 1)";
   --custom-on-container-dark: "rgba(246, 248, 250, 1)";
-  --custom-surface: "rgba(246, 246, 246, 1)";
+  --custom-surface: "#F4F4F5";
   --custom-on-surface: "rgba(152, 152, 154, 1)";
   --custom-surface-container: "rgba(234, 234, 234, 1)";
   --custom-on-surface-container: "rgba(122, 122, 122, 1)";
-  --custom-black: "rgba(42, 44, 45, 1)";
+  --custom-black: "rgba(24, 23, 26, 1)";
 }
 
 .dark {
@@ -137,13 +137,13 @@
   /* custom colors */
   --custom-primary: rgba(121, 192, 255, 1);
   --custom-secondary: rgba(242, 165, 88, 1);
-  --custom-container-dark: "rgb(40, 41, 43)";
-  --custom-on-container-dark: "rgb(246, 248, 250)";
-  --custom-surface: "rgb(246, 246, 246)";
-  --custom-on-surface: "rgb(152, 152, 154)";
-  --custom-surface-container: "rgb(234, 234, 234)";
-  --custom-on-surface-container: "rgb(122, 122, 122)";
-  --custom-black: "rgb(42, 44, 45)";
+  --custom-container-dark: "rgba(40, 41, 43, 1)";
+  --custom-on-container-dark: "rgba(246, 248, 250, 1)";
+  --custom-surface: "#F4F4F5";
+  --custom-on-surface: "rgba(152, 152, 154, 1)";
+  --custom-surface-container: "rgba(234, 234, 234, 1)";
+  --custom-on-surface-container: "rgba(122, 122, 122, 1)";
+  --custom-black: "rgba(24, 23, 26, 1)";
 }
 
 @layer base {

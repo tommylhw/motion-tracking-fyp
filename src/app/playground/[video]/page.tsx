@@ -29,6 +29,7 @@ import { useVideo } from "@/context/VideoContext";
 import { FaPause, FaPlay, FaStop } from "react-icons/fa";
 import { CiPlay1, CiPause1 } from "react-icons/ci";
 import { RiSpeedUpFill } from "react-icons/ri";
+import { FpsChart } from "@/app/components/FpsChart";
 
 const page = ({ params }: { params: Promise<{ video: string }> }) => {
   const router = useRouter();
@@ -37,7 +38,6 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
   const [decodedVideoUrl, setDecodedVideoUrl] = useState<string>(
     decodeURIComponent(encodedVideoUrl || "") || decodeURIComponent(video)
   );
-  console.log("decodedVideoUrl:", decodedVideoUrl);
   const [isLoading, setIsLoading] = useState(true);
   const videoSpeed = useRef<number>(1);
 
@@ -84,6 +84,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
 
   const [webcamRunning, setWebcamRunning] = useState(false);
 
+  /* // START: customize detection keypoints drawing
   // Define left and right side indices
   const leftSideIndices = [11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31]; // Left shoulder, elbow, wrist, hip, knee, ankle, heel, foot
   const rightSideIndices = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32]; // Right shoulder, elbow, wrist, hip, knee, ankle, heel, foot
@@ -137,6 +138,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
       !(leftSideIndices.includes(start) && leftSideIndices.includes(end)) &&
       !(rightSideIndices.includes(start) && rightSideIndices.includes(end))
   ).map(([start, end]) => ({ start, end }));
+  // END: customize detection keypoints drawing */
 
   const createPoseLandmarker = async (type: "video" | "webcam") => {
     try {
@@ -145,11 +147,15 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
       );
       console.log(`${type} WASM files resolved successfully`);
 
-      const modelUrl =
-        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+      const modelLiteUrl =
+        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task";
+      const modelFullUrl =
+        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task";
+      const modelHeavyUrl =
+        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task";
       const landmarker = await PoseLandmarker.createFromOptions(vision, {
         baseOptions: {
-          modelAssetPath: modelUrl,
+          modelAssetPath: modelLiteUrl,
           delegate: "GPU",
         },
         runningMode: "VIDEO",
@@ -214,9 +220,8 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         console.log("Video dimensions:", {
           videoWidth: resizedVideoWidth.current,
           videoHeight: resizedVideoHeight.current,
-          dimension: videoAspectRatio.current
+          dimension: videoAspectRatio.current,
         });
-        
       };
 
       videoRef.current.onended = () => {
@@ -251,7 +256,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         (device) => device.kind === "videoinput"
       );
       setWebcamDevices(webcamDevices);
-      if (webcamDevices.length > 0) {
+      if (selectedDeviceId === null && webcamDevices.length > 0) {
         setSelectedDeviceId(webcamDevices[0].deviceId);
       }
     } catch (err: any) {
@@ -262,9 +267,12 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
 
   const setupWebcam = () => {
     if (webcamRef.current && webcamCanvasRef.current) {
+      console.log("Setting up webcam with device ID:", selectedDeviceId);
       const constraints = {
         video: {
-          deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
+          deviceId: selectedDeviceId
+            ? { exact: selectedDeviceId }
+            : webcamDevices[0].deviceId,
           width: resizedVideoWidth.current, // Force exact width
           height: resizedVideoHeight.current, // Force exact height
           aspectRatio: videoAspectRatio.current, // Force exact aspect ratio
@@ -362,6 +370,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           continue; // Skip this iteration
         }
 
+/*         // START: Separate landmarks into left, right, and neutral
         const leftLandmarks = landmarks.filter((_, index) =>
           leftSideIndices.includes(index)
         );
@@ -402,16 +411,17 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           color: "#fff",
           lineWidth: 2,
         });
+        // END: Separate landmarks into left, right, and neutral */
 
-        // drawingUtils.drawLandmarks(landmark, {
-        //   radius: (data) => DrawingUtils.lerp(data.from!.z, -0.15, 0.1, 5, 1),
-        //   color: "#fff",
-        //   lineWidth: 2,
-        // });
-        // drawingUtils.drawConnectors(landmark, PoseLandmarker.POSE_CONNECTIONS, {
-        //   color: "#395EFC",
-        //   lineWidth: 2,
-        // });
+        drawingUtils.drawLandmarks(landmarks, {
+          radius: (data) => DrawingUtils.lerp(data.from!.z, -0.15, 0.1, 5, 1),
+          color: "#fff",
+          lineWidth: 2,
+        });
+        drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {
+          color: "rgba(242, 165, 88, 0.7)",
+          lineWidth: 2,
+        });
       }
 
       let keypoints_data = {
@@ -439,7 +449,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
             : [],
       };
       // console.log("video keypoints:", keypoints_data);
-      setVideoDetectedKeypoints((prev) => [...prev, keypoints_data]);
+      // setVideoDetectedKeypoints((prev) => [...prev, keypoints_data]);
       videoDetectedKeypointsRef.current = [
         ...videoDetectedKeypointsRef.current,
         keypoints_data,
@@ -537,6 +547,17 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
             continue; // Skip this iteration
           }
 
+          drawingUtils.drawLandmarks(landmarks, {
+            radius: (data) => DrawingUtils.lerp(data.from!.z, -0.15, 0.1, 5, 1),
+            color: "#fff",
+            lineWidth: 2,
+          });
+          drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {
+            color: "rgba(121, 192, 255, 0.7)",
+            lineWidth: 2,
+          });
+
+          /* // START: Separate landmarks into left, right, and neutral
           const leftLandmarks = landmarks.filter((_, index) =>
             leftSideIndices.includes(index)
           );
@@ -577,8 +598,9 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
             color: "#fff",
             lineWidth: 2,
           });
+          // END: Separate landmarks into left, right, and neutral */
 
-          /* // Calculate distances and draw colored dots on the webcam tracking
+          /* // START: Calculate distances and draw colored dots on the webcam tracking
           if (skeletonKeypoint && skeletonKeypoint.kpts.length > 0) {
             const webcamKpts = webcamResult.landmarks[0];
             const skeletonKpts = skeletonKeypoint.kpts;
@@ -609,7 +631,9 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
                 canvasCtx.closePath();
               }
             });
-          } */
+          } 
+          // END: Calculate distances and draw colored dots on the webcam tracking  
+          */
 
           // Calculate distances and draw dots on skeleton keypoints
           const skeletonKpts = skeletonKeypoint ? skeletonKeypoint.kpts : [];
@@ -693,7 +717,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           // distances: distances,
         };
         // console.log("webcam keypoints:", keypoints_data);
-        setWebcamDetectedKeypoints((prev) => [...prev, keypoints_data]);
+        // setWebcamDetectedKeypoints((prev) => [...prev, keypoints_data]);
         webcamDetectedKeypointsRef.current = [
           ...webcamDetectedKeypointsRef.current,
           keypoints_data,
@@ -721,8 +745,8 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
       !videoPlaying
     ) {
       if (!videoStarted) {
-        setupVideo();
-        setupWebcam();
+        // setupVideo();
+        // setupWebcam();
 
         if (
           videoRef.current &&
@@ -811,7 +835,75 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
     }
   };
 
+  // Centralized loading logic
   useEffect(() => {
+    setIsLoading(true);
+    const initialize = async () => {
+      try {
+        // 1. Handle video URL
+        if (!decodedVideoUrl) throw new Error("No video URL provided");
+
+        // 2. Initialize PoseLandmarkers
+        if (!videoPoseLandmarker && !webcamPoseLandmarker) {
+          console.log("Initializing PoseLandmarkers...");
+          const [videoLandmarker, webcamLandmarker] = await Promise.all([
+            createPoseLandmarker("video"),
+            createPoseLandmarker("webcam"),
+          ]);
+        }
+
+        // 3. Get webcam devices and set initial device ID
+        await getWebcamDevices();
+
+        // 4. Setup video and webcam
+        console.log("Setting up video and webcam...");
+        await Promise.all([
+          setupVideo(), // Setup video
+          // setupWebcam(), // Setup webcam
+        ]);
+
+        setIsLoading(false); // All dependencies are ready
+      } catch (err: any) {
+        console.error("Initialization error:", err);
+        setError(err.message);
+        if (err.message.includes("Blob URL expired or invalid")) {
+          router.push("/");
+        }
+        setIsLoading(false); // Show error state even if loading fails
+      }
+    };
+
+    setTimeout(() => {
+      initialize();
+    }, 2000);
+
+    return () => {
+      if (videoRafIdRef.current) cancelAnimationFrame(videoRafIdRef.current);
+      if (webcamRafIdRef.current) cancelAnimationFrame(webcamRafIdRef.current);
+      if (webcamRef.current?.srcObject) {
+        (webcamRef.current.srcObject as MediaStream)
+          .getTracks()
+          .forEach((track) => track.stop());
+      }
+    };
+  }, [decodedVideoUrl]); // Re-run if URL or device ID changes
+
+  useEffect(() => {
+    const switchWebcam = async () => {
+      setupWebcam();
+    };
+    switchWebcam();
+  }, [selectedDeviceId]);
+
+  // Update decodedVideoUrl when encodedVideoUrl changes
+  useEffect(() => {
+    if (encodedVideoUrl) {
+      const newDecodedUrl = decodeURIComponent(encodedVideoUrl);
+      setDecodedVideoUrl(newDecodedUrl);
+    }
+  }, [encodedVideoUrl]);
+
+  /* useEffect(() => {
     setupWebcam();
   }, [selectedDeviceId]);
 
@@ -843,18 +935,6 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         console.error("Error initializing PoseLandmarkers:", err)
       );
     getWebcamDevices();
-    // Check if Blob URL is valid on mount
-    // fetch(decodedVideoUrl)
-    //   .then((response) => {
-    //     if (!response.ok) {
-    //       throw new Error("Blob URL not found");
-    //     }
-    //     setIsLoading(false);
-    //   })
-    //   .catch((err) => {
-    //     console.error("Blob URL expired or invalid:", err);
-    //     setError("Blob URL expired or invalid");
-    //   });
 
     return () => {
       if (videoRafIdRef.current) cancelAnimationFrame(videoRafIdRef.current);
@@ -874,16 +954,16 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
     } else {
       setIsLoading(false);
     }
-  }, [error]);
+  }, [error]); */
 
   return (
     <div className="flex justify-center items-start">
       {isLoading ? (
-        <div className="w-screen h-screen flex justify-center items-center">
+        <div className="w-screen h-screen flex justify-center items-center border-2">
           <PulseLoader
-            color={`var(--color--custom-primary)`}
-            // color={"#395EFC"}
+            color={"#181818"}
             loading={isLoading}
+            speedMultiplier={0.5}
             size={14}
             aria-label="Loading Spinner"
             data-testid="loader"
@@ -893,6 +973,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         </div>
       ) : (
         <div className="w-full h-full mt-5 flex flex-col items-center justify-center gap-2 max-w-[1200px]">
+          {/* Video and Webcam display */}
           <div className=" w-full flex items-start justify-center gap-4">
             <div className="relative w-[50%] [box-shadow:rgba(17,_17,_26,_0.1)_0px_4px_16px,_rgba(17,_17,_26,_0.05)_0px_8px_32px] rounded-md">
               <video
@@ -909,7 +990,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
                 className="absolute top-0 left-0 w-full h-full rounded-md"
               />
             </div>
-            <div className="relative w-[50%] [box-shadow:rgba(17,_17,_26,_0.1)_0px_4px_16px,_rgba(17,_17,_26,_0.05)_0px_8px_32px] rounded-md border-2 border-red-600">
+            <div className="relative w-[50%] [box-shadow:rgba(17,_17,_26,_0.1)_0px_4px_16px,_rgba(17,_17,_26,_0.05)_0px_8px_32px] rounded-md">
               <video
                 ref={webcamRef}
                 width={resizedVideoWidth.current} // Bind to state
@@ -925,8 +1006,9 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
               />
             </div>
           </div>
-          <div className="w-full flex justify-center items-center gap-2 mt-2">
-            <div className="w-[50%] flex justify-between items-center gap-2">
+          {/* Video and Webcam controls */}
+          <div className="w-full flex justify-center items-center gap-2 mt-1">
+            <div className="w-[50%] flex justify-between items-center gap-2 bg-[#F4F4F5] rounded-md px-[6px]">
               <div>
                 {videoPlaying ? (
                   <Button
@@ -1024,6 +1106,16 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
                   </SelectContent>
                 </Select>
               )}
+            </div>
+          </div>
+          <div className="w-full flex justify-start items-center gap-2 mt-2">
+            {/* FPS Chart */}
+            <div className="w-[100%]">
+              <FpsChart
+                videoDetectedKeypointsRef={videoDetectedKeypointsRef}
+                webcamDetectedKeypointsRef={webcamDetectedKeypointsRef}
+                videoPlaying={videoPlaying}
+              />
             </div>
           </div>
         </div>

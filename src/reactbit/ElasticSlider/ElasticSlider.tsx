@@ -137,7 +137,7 @@ const Slider: React.FC<SliderProps> = ({
   };
 
   return (
-    <div className="w-full flex gap-4 items-center justify-center ">
+    <div className="w-full flex gap-5 items-center justify-center ">
       <motion.div
         onHoverStart={() => animate(scale, 1.2)}
         onHoverEnd={() => animate(scale, 1)}
@@ -147,11 +147,11 @@ const Slider: React.FC<SliderProps> = ({
           scale,
           opacity: useTransform(scale, [1, 1.2], [0.7, 1]),
         }}
-        className="flex w-full touch-none select-none items-center gap-3 justify-center"
+        className="flex w-full touch-none select-none items-center gap-1 justify-center"
       >
         <motion.div
           animate={{
-            scale: region === "left" ? [1, 1.4, 1] : 1,
+            scale: region === "left" ? [1, 1.4, 1] : 0.8,
             transition: { duration: 0.25 },
           }}
           style={{
