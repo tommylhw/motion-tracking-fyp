@@ -124,7 +124,7 @@ export function FpsChart({
   }, [chartData]); // Trigger when chartData changes
 
   // Dynamic width: 10px per frame, minimum 800px
-  const chartWidth = Math.max(chartData.length * 10, 800);
+  const chartWidth = Math.max(chartData.length * 10, parseInt('100%', 10));
 
   // Custom label formatter for the tooltip title
   const tooltipLabelFormatter = (value: any, payload: any[]) => {
@@ -133,7 +133,7 @@ export function FpsChart({
   };
 
   return (
-    <Card>
+    <Card className="border-0 shadow-custom-card-white">
       <CardHeader>
         <CardTitle>FPS Over Time</CardTitle>
         <CardDescription>
@@ -155,7 +155,7 @@ export function FpsChart({
             </LineChart>
           </ChartContainer>
         </div> */}
-        <CardContent className="overflow-x-scroll h-[300px]" ref={scrollRef}>
+        <CardContent className="overflow-x-scroll h-[300px] w-full" ref={scrollRef}>
           {" "}
           {/* handle overflow x */}
           <ChartContainer

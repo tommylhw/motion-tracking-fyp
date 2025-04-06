@@ -159,6 +159,9 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         },
         runningMode: "VIDEO",
         numPoses: 1,
+        minPoseDetectionConfidence: 0.8,
+        minPosePresenceConfidence: 0.8,
+        minTrackingConfidence: 0.8,
       });
       console.log(`${type} PoseLandmarker initialized successfully`);
       if (type === "video") {
@@ -222,6 +225,8 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           dimension: videoAspectRatio.current,
         });
       };
+
+      setupWebcam();
 
       videoRef.current.onended = () => {
         console.log("Video ended, stopping prediction");
@@ -1085,7 +1090,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
                   value={selectedDeviceId || webcamDevices[0]?.deviceId}
                   onValueChange={(value) => setSelectedDeviceId(value)}
                 >
-                  <SelectTrigger className="w-[180px] cursor-pointer">
+                  <SelectTrigger className="w-[180px] cursor-pointer h-full">
                     <SelectValue placeholder="Select a webcam" />
                   </SelectTrigger>
                   <SelectContent>
