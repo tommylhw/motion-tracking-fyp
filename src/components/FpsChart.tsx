@@ -133,7 +133,7 @@ export function FpsChart({
   };
 
   return (
-    <Card className="border-0 shadow-custom-card-white">
+    <Card className="border-0 shadow-(--shadow-custom-neuromorphic)">
       <CardHeader>
         <CardTitle>FPS Over Time</CardTitle>
         <CardDescription>

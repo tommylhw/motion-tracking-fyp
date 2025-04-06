@@ -979,7 +979,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         <div className="w-full h-full mt-5 flex flex-col items-center justify-center gap-2 max-w-[1200px]">
           {/* Video and Webcam display */}
           <div className=" w-full flex items-start justify-center gap-4">
-            <div className="relative w-[50%] [box-shadow:rgba(17,_17,_26,_0.1)_0px_4px_16px,_rgba(17,_17,_26,_0.05)_0px_8px_32px] rounded-md">
+            <div className="relative w-[50%] shadow-(--shadow-custom-light) rounded-md">
               <video
                 ref={videoRef}
                 width={resizedVideoWidth.current} // Bind to state
@@ -994,7 +994,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
                 className="absolute top-0 left-0 w-full h-full rounded-md"
               />
             </div>
-            <div className="relative w-[50%] [box-shadow:rgba(17,_17,_26,_0.1)_0px_4px_16px,_rgba(17,_17,_26,_0.05)_0px_8px_32px] rounded-md">
+            <div className="relative w-[50%] shadow-(--shadow-custom-light) rounded-md">
               <video
                 ref={webcamRef}
                 width={resizedVideoWidth.current} // Bind to state
