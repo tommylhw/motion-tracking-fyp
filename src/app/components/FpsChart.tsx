@@ -46,83 +46,31 @@ export function FpsChart({
   const [chartData, setChartData] = useState<
     { frame_id: number | null; video: number | null; webcam: number | null }[]
   >([]);
-  
   const scrollRef = useRef<HTMLDivElement>(null); // Ref for the scrollable div
   const workerRef = useRef<Worker | null>(null);
 
-  const chartDataRef = useRef<{ frame_id: number; video: number | null; webcam: number | null }[]>([]);
-  const rafIdRef = useRef<number | null>(null);
-  const lastUpdateRef = useRef<number>(0);
-  const UPDATE_INTERVAL = 100; // Update every 100ms (~10 FPS) for smooth
-
-  const updateChartData = (timestamp: number) => {
-    const videoData = videoDetectedKeypointsRef.current || [];
-    const webcamData = webcamDetectedKeypointsRef.current || [];
-    const maxFrames = Math.max(videoData.length, webcamData.length);
-
-    // Only update if data has grown since last update
-    if (maxFrames > chartDataRef.current.length) {
-      const newChartData = Array.from({ length: maxFrames }, (_, index) => ({
-        frame_id: index,
-        video: videoData[index]?.fps ? parseFloat(videoData[index].fps) : null,
-        webcam: webcamData[index]?.fps ? parseFloat(webcamData[index].fps) : null,
-      }));
-      chartDataRef.current = newChartData;
-    }
-
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth; // Auto-scroll to latest data
-    }
-  };
-
-  const animate = (timestamp: number) => {
-    if (!videoPlaying) {
-      rafIdRef.current = null;
-      return;
-    }
-
-    // Throttle updates to ~10 FPS for smoothness without overloading
-    if (timestamp - lastUpdateRef.current >= UPDATE_INTERVAL) {
-      updateChartData(timestamp);
-      lastUpdateRef.current = timestamp;
-    }
-
-    rafIdRef.current = requestAnimationFrame(animate);
-  };
-
+  // Update chart data whenever keypoints change, but only if video is playing
   useEffect(() => {
-    if (videoPlaying && !rafIdRef.current) {
-      lastUpdateRef.current = performance.now();
-      rafIdRef.current = requestAnimationFrame(animate);
-    } else if (!videoPlaying && rafIdRef.current) {
-      cancelAnimationFrame(rafIdRef.current);
-      rafIdRef.current = null;
-    }
-
-    return () => {
-      if (rafIdRef.current) {
-        cancelAnimationFrame(rafIdRef.current);
-        rafIdRef.current = null;
+    /* // Initialize Web Worker
+    workerRef.current = new Worker(
+      new URL("/workers/FpsChartWorker.ts", import.meta.url),
+      {
+        type: "module", // Required for ES modules in some environments
       }
+    );
+
+    // Handle messages from the worker
+    workerRef.current.onmessage = (event: MessageEvent) => {
+      setChartData(event.data);
     };
-  }, [videoPlaying]);
 
-  // // Force re-render periodically only when data changes significantly
-  // const [, forceUpdate] = useRef(0); // Dummy state to trigger re-render
-  // useEffect(() => {
-  //   const renderInterval = setInterval(() => {
-  //     if (videoPlaying && chartDataRef.current.length > 0) {
-  //       forceUpdate((prev) => prev + 1); // Trigger re-render every 100ms if data exists
-  //     }
-  //   }, UPDATE_INTERVAL);
+    // Function to send data to worker
+    const updateChartData = () => {
+      const videoData = videoDetectedKeypointsRef.current || [];
+      const webcamData = webcamDetectedKeypointsRef.current || [];
+      workerRef.current?.postMessage({ videoData, webcamData });
+    }; */
 
-  //   return () => clearInterval(renderInterval);
-  // }, [videoPlaying]);
-
-  const chartWidth = Math.max(chartDataRef.current.length * 10, 800);
-
-  /* // Update chart data on useeffect interval, but only if video is playing
-  useEffect(() => {
     const updateChartData = () => {
       const videoData = videoDetectedKeypointsRef.current;
       const webcamData = webcamDetectedKeypointsRef.current;
@@ -154,7 +102,7 @@ export function FpsChart({
     // Initial update when component mounts
     updateChartData();
 
-    let interval: NodeJS.Timeout | null = null;
+    /* let interval: NodeJS.Timeout | null = null;
     // Start polling only if video is playing
     if (videoPlaying) {
       interval = setInterval(updateChartData, 2000);
@@ -164,7 +112,7 @@ export function FpsChart({
     return () => {
       if (interval) clearInterval(interval);
       // workerRef.current?.terminate(); // Terminate worker on unmount
-    };
+    }; */
   }, [videoDetectedKeypointsRef, webcamDetectedKeypointsRef, videoPlaying]);
 
   // Scroll to the right whenever chartData updates
@@ -176,8 +124,7 @@ export function FpsChart({
   }, [chartData]); // Trigger when chartData changes
 
   // Dynamic width: 10px per frame, minimum 800px
-  const chartWidth = Math.max(chartData.length * 10, parseInt('100%', 10)); */
-
+  const chartWidth = Math.max(chartData.length * 10, 800);
 
   // Custom label formatter for the tooltip title
   const tooltipLabelFormatter = (value: any, payload: any[]) => {
@@ -186,7 +133,7 @@ export function FpsChart({
   };
 
   return (
-    <Card className="border-0 shadow-(--shadow-custom-neuromorphic)">
+    <Card>
       <CardHeader>
         <CardTitle>FPS Over Time</CardTitle>
         <CardDescription>
@@ -208,7 +155,7 @@ export function FpsChart({
             </LineChart>
           </ChartContainer>
         </div> */}
-        <CardContent className="overflow-x-scroll h-[300px] w-full" ref={scrollRef}>
+        <CardContent className="overflow-x-scroll h-[300px]" ref={scrollRef}>
           {" "}
           {/* handle overflow x */}
           <ChartContainer
@@ -220,8 +167,7 @@ export function FpsChart({
           >
             <LineChart
               accessibilityLayer
-              // data={chartData}
-              data={chartDataRef.current} // Use the ref for chart data
+              data={chartData}
               margin={{ left: 12, right: 12, top: 10, bottom: 10 }}
               width={chartWidth} // Explicitly set width
               height={280} // Fixed height for the chart
@@ -273,13 +219,11 @@ export function FpsChart({
       <CardFooter>
         <div className="flex w-full items-start gap-2 text-sm">
           <div className="flex justify-between gap-2 w-full">
-            <div className="flex flex-col items-start gap-2 font-medium leading-none">
-              <p>Average Video Tracking FPS: {videoDetectedKeypointsRef.current[videoDetectedKeypointsRef.current?.length - 1]?.avg_fps}</p>
-              <p>Average Real-time Tracking FPS: {webcamDetectedKeypointsRef.current[webcamDetectedKeypointsRef.current?.length - 1]?.avg_fps}</p>
+            <div className="flex items-center gap-2 font-medium leading-none">
+              Real-time FPS tracking
             </div>
             <div className="flex items-center gap-2 leading-none text-muted-foreground">
               Frame ID range: 0 - {chartData.length - 1 || 0}
-              {/* Frame ID range: 0 - {chartDataRef.current.length - 1 || 0} */}
             </div>
           </div>
         </div>

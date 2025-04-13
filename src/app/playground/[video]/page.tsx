@@ -7,6 +7,7 @@ import {
   DrawingUtils,
 } from "@mediapipe/tasks-vision";
 import { PulseLoader } from "react-spinners";
+import { drawAngles } from "@/utils/AnglesUtils";
 
 // ui
 import { Button } from "@/components/ui/button";
@@ -226,7 +227,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         });
       };
 
-      setupWebcam();
+      // setupWebcam();
 
       videoRef.current.onended = () => {
         console.log("Video ended, stopping prediction");
@@ -279,7 +280,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
             : webcamDevices[0].deviceId,
           width: resizedVideoWidth.current, // Force exact width
           height: resizedVideoHeight.current, // Force exact height
-          aspectRatio: videoAspectRatio.current, // Force exact aspect ratio
+          aspectRatio: { exact: videoAspectRatio.current }, // Force exact aspect ratio
         },
       };
       console.log("Webcam constraints:", constraints);
@@ -374,7 +375,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           continue; // Skip this iteration
         }
 
-/*         // START: Separate landmarks into left, right, and neutral
+        /*         // START: Separate landmarks into left, right, and neutral
         const leftLandmarks = landmarks.filter((_, index) =>
           leftSideIndices.includes(index)
         );
@@ -422,11 +423,25 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           color: "#fff",
           lineWidth: 2,
         });
-        drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {
-          color: "rgba(242, 165, 88, 0.7)",
-          lineWidth: 2,
-        });
+        drawingUtils.drawConnectors(
+          landmarks,
+          PoseLandmarker.POSE_CONNECTIONS,
+          {
+            color: "rgba(242, 165, 88, 0.7)",
+            lineWidth: 2,
+          }
+        );
       }
+
+      // Calculate average FPS
+      const prevKeypoints = videoDetectedKeypointsRef.current;
+      const prevAvgFps =
+        prevKeypoints.length > 0
+          ? parseFloat(prevKeypoints[prevKeypoints.length - 1].avg_fps)
+          : 0;
+      const frameCount = frame_id + 1; // frame_id starts at 0, so +1 gives total frames
+      const avg_fps =
+        frameCount === 1 ? fps : prevAvgFps + (fps - prevAvgFps) / frameCount;
 
       let keypoints_data = {
         frame_id: frame_id,
@@ -436,6 +451,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         ],
         video_timestamp: videoRef.current!.currentTime.toFixed(2),
         fps: fps.toFixed(2),
+        avg_fps: avg_fps.toFixed(2),
         no_of_poses: result.landmarks.length,
         kpts:
           result.landmarks && result.landmarks.length > 0 && result.landmarks[0]
@@ -452,6 +468,17 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
               }))
             : [],
       };
+
+      // Draw angles using imported function
+      if (keypoints_data.kpts.length > 0) {
+        drawAngles(
+          canvasCtx,
+          keypoints_data.kpts,
+          canvasRef.current!.width,
+          canvasRef.current!.height,
+        );
+      }
+
       // console.log("video keypoints:", keypoints_data);
       // setVideoDetectedKeypoints((prev) => [...prev, keypoints_data]);
       videoDetectedKeypointsRef.current = [
@@ -556,10 +583,14 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
             color: "#fff",
             lineWidth: 2,
           });
-          drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {
-            color: "rgba(121, 192, 255, 0.7)",
-            lineWidth: 2,
-          });
+          drawingUtils.drawConnectors(
+            landmarks,
+            PoseLandmarker.POSE_CONNECTIONS,
+            {
+              color: "rgba(121, 192, 255, 0.7)",
+              lineWidth: 2,
+            }
+          );
 
           /* // START: Separate landmarks into left, right, and neutral
           const leftLandmarks = landmarks.filter((_, index) =>
@@ -667,15 +698,34 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
 
               // Draw dot on skeleton keypoint
               const color =
-                distance < 80 ? "rgba(96, 237, 40, 1)" : "rgba(229, 37, 8, 1)";
+                distance < 20 ? "rgba(96, 237, 40, 1)" : "rgba(229, 37, 8, 1)";
+
               canvasCtx.beginPath();
-              canvasCtx.arc(skeletonX, skeletonY, 5, 0, 2 * Math.PI); // skeletonKpt.normalized_coords[0] * webcamRef.current!.videoWidth, skeletonKpt.normalized_coords[1] *
-              webcamRef.current!.videoHeight, (canvasCtx.fillStyle = color);
+              canvasCtx.arc(
+                skeletonKpt.normalized_coords[0] *
+                  webcamCanvasRef.current!.width,
+                skeletonKpt.normalized_coords[1] *
+                  webcamCanvasRef.current!.height,
+                5,
+                0,
+                2 * Math.PI
+              );
+              canvasCtx.fillStyle = color;
               canvasCtx.fill();
               canvasCtx.closePath();
             });
           }
         }
+
+        // Calculate average FPS
+        const prevKeypoints = webcamDetectedKeypointsRef.current;
+        const prevAvgFps =
+          prevKeypoints.length > 0
+            ? parseFloat(prevKeypoints[prevKeypoints.length - 1].avg_fps)
+            : 0;
+        const frameCount = frame_id + 1; // frame_id starts at 0, so +1 gives total frames
+        const avg_fps =
+          frameCount === 1 ? fps : prevAvgFps + (fps - prevAvgFps) / frameCount;
 
         let keypoints_data = {
           frame_id: frame_id,
@@ -685,6 +735,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           ],
           webcam_timestamp: webcamRef.current!.currentTime,
           fps: fps.toFixed(2),
+          avg_fps: avg_fps.toFixed(2),
           no_of_poses: webcamResult.landmarks.length,
           kpts:
             webcamResult.landmarks &&
