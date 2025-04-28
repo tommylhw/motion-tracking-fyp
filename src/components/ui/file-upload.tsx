@@ -37,7 +37,7 @@ export const FileUpload = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (newFiles: File[]) => {
-    const selectedFile: any = newFiles[0]; // Take only the first file
+    const selectedFile: File = newFiles[0]; // Take only the first file
     setFile(selectedFile); // Replace the old file
     onChange && onChange(selectedFile);
   };

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { TrendingUp } from "lucide-react";
+import { useEffect, useRef } from "react";
+// import { TrendingUp } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   Card,
@@ -17,6 +17,65 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { NameType, Payload, ValueType } from "recharts/types/component/DefaultTooltipContent";
+
+// Define the type for a single keypoint (same as in page.tsx)
+type KEYPOINT_TYPE = {
+  frame_id: number;
+  kpt_id: number;
+  normalized_coords: number[];
+  coords: number[];
+  visibility: number;
+};
+
+// Define the main type for video detected keypoints (same as in page.tsx)
+type VIDEO_DETECTED_KEYPOINTS_TYPE = {
+  frame_id: number;
+  resolution: number[];
+  video_timestamp: string;
+  fps: string;
+  avg_fps: string;
+  no_of_poses: number;
+  kpts: KEYPOINT_TYPE[];
+};
+
+// Define the type for a single keypoint
+type WEBCAM_KEYPOINT_TYPE = {
+  frame_id: number;
+  kpt_id: number;
+  normalized_coords: number[];
+  coords: number[];
+  visibility: number;
+  skeleton_normalized_coords: number[] | null;
+  skeleton_coords: number[] | null;
+  distance: number | null;
+};
+
+// Define the main type for webcam detected keypoints
+type WEBCAM_DETECTED_KEYPOINTS_TYPE = {
+  frame_id: number;
+  resolution: number[];
+  webcam_timestamp: number;
+  fps: string;
+  avg_fps: string;
+  no_of_poses: number;
+  kpts: WEBCAM_KEYPOINT_TYPE[];
+};
+
+// Custom type for the Payload to override the 'payload' property, keeping TValue and TName generic
+interface CustomPayload<TValue extends ValueType, TName extends NameType>
+  extends Payload<TValue, TName> {
+  payload?: VIDEO_DETECTED_KEYPOINTS_TYPE;
+}
+
+// Custom label formatter for the tooltip title, made generic
+const tooltipLabelFormatter = <TValue extends ValueType, TName extends NameType>(
+  label: string | number, // Avoid using 'any'
+  payload: CustomPayload<TValue, TName>[]
+): React.ReactNode => {
+  const frameId = payload[0]?.payload?.frame_id; // Get frame_id from the first payload item
+  return frameId !== undefined ? `Frame ${frameId}` : "Frame N/A"; // Custom title format with fallback
+};
 
 // Chart configuration
 const chartConfig = {
@@ -34,28 +93,24 @@ export function FpsChart({
   videoDetectedKeypointsRef,
   webcamDetectedKeypointsRef,
   videoPlaying,
-  frameCountRef,
-  frameCount,
 }: {
-  videoDetectedKeypointsRef: React.RefObject<any[]>;
-  webcamDetectedKeypointsRef: React.RefObject<any[]>;
+  videoDetectedKeypointsRef: React.RefObject<VIDEO_DETECTED_KEYPOINTS_TYPE[]>;
+  webcamDetectedKeypointsRef: React.RefObject<WEBCAM_DETECTED_KEYPOINTS_TYPE[]>;
   videoPlaying: boolean;
-  frameCountRef?: React.RefObject<number>;
-  frameCount?: number;
 }) {
-  const [chartData, setChartData] = useState<
-    { frame_id: number | null; video: number | null; webcam: number | null }[]
-  >([]);
+  // const [chartData, setChartData] = useState<
+  //   { frame_id: number | null; video: number | null; webcam: number | null }[]
+  // >([]);
   
   const scrollRef = useRef<HTMLDivElement>(null); // Ref for the scrollable div
-  const workerRef = useRef<Worker | null>(null);
+  // const workerRef = useRef<Worker | null>(null);
 
   const chartDataRef = useRef<{ frame_id: number; video: number | null; webcam: number | null }[]>([]);
   const rafIdRef = useRef<number | null>(null);
   const lastUpdateRef = useRef<number>(0);
   const UPDATE_INTERVAL = 100; // Update every 100ms (~10 FPS) for smooth
 
-  const updateChartData = (timestamp: number) => {
+  const updateChartData = () => {
     const videoData = videoDetectedKeypointsRef.current || [];
     const webcamData = webcamDetectedKeypointsRef.current || [];
     const maxFrames = Math.max(videoData.length, webcamData.length);
@@ -83,7 +138,7 @@ export function FpsChart({
 
     // Throttle updates to ~10 FPS for smoothness without overloading
     if (timestamp - lastUpdateRef.current >= UPDATE_INTERVAL) {
-      updateChartData(timestamp);
+      updateChartData();
       lastUpdateRef.current = timestamp;
     }
 
@@ -179,11 +234,11 @@ export function FpsChart({
   const chartWidth = Math.max(chartData.length * 10, parseInt('100%', 10)); */
 
 
-  // Custom label formatter for the tooltip title
-  const tooltipLabelFormatter = (value: any, payload: any[]) => {
-    const frameId = payload[0]?.payload?.frame_id; // Get frame_id from the first payload item
-    return `Frame ${frameId}`; // Custom title format
-  };
+  // // Custom label formatter for the tooltip title
+  // const tooltipLabelFormatter = (value: string | number, payload: CustomPayload[]) => {
+  //   const frameId = payload[0]?.payload?.frame_id; // Get frame_id from the first payload item
+  //   return `Frame ${frameId}`; // Custom title format
+  // };
 
   return (
     <Card className="border-0 shadow-(--shadow-custom-neuromorphic)">
@@ -278,7 +333,7 @@ export function FpsChart({
               <p>Average Real-time Tracking FPS: {webcamDetectedKeypointsRef.current[webcamDetectedKeypointsRef.current?.length - 1]?.avg_fps}</p>
             </div>
             <div className="flex items-center gap-2 leading-none text-muted-foreground">
-              Frame ID range: 0 - {chartData.length - 1 || 0}
+              Frame ID range: 0 - {videoDetectedKeypointsRef.current[videoDetectedKeypointsRef.current?.length - 1]?.frame_id}
               {/* Frame ID range: 0 - {chartDataRef.current.length - 1 || 0} */}
             </div>
           </div>

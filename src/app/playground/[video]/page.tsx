@@ -1,5 +1,5 @@
 "use client";
-import React, { use, useState, useEffect, useRef, useMemo } from "react";
+import React, { use, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   FilesetResolver,
@@ -21,17 +21,71 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ElasticSlider from "@/reactbit/ElasticSlider/ElasticSlider";
+import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 // context
 import { useVideo } from "@/context/VideoContext";
 
 // icons
-import { FaPause, FaPlay, FaStop } from "react-icons/fa";
-import { CiPlay1, CiPause1 } from "react-icons/ci";
 import { RiSpeedUpFill } from "react-icons/ri";
+
+// components
+import ThinkingAnimation from "@/components/ThinkingAnimation";
 import { FpsChart } from "@/components/FpsChart";
 
-const page = ({ params }: { params: Promise<{ video: string }> }) => {
+// Define the type for a single keypoint
+type KEYPOINT_TYPE = {
+  frame_id: number;
+  kpt_id: number;
+  normalized_coords: number[];
+  coords: number[];
+  visibility: number;
+};
+
+// Define the main type for video detected keypoints
+type VIDEO_DETECTED_KEYPOINTS_TYPE = {
+  frame_id: number;
+  resolution: number[];
+  video_timestamp: string;
+  fps: string;
+  avg_fps: string;
+  no_of_poses: number;
+  kpts: KEYPOINT_TYPE[];
+};
+
+// Define the type for a single keypoint
+type WEBCAM_KEYPOINT_TYPE = {
+  frame_id: number;
+  kpt_id: number;
+  normalized_coords: number[];
+  coords: number[];
+  visibility: number;
+  skeleton_normalized_coords: number[] | null;
+  skeleton_coords: number[] | null;
+  distance: number | null;
+};
+
+// Define the main type for webcam detected keypoints
+type WEBCAM_DETECTED_KEYPOINTS_TYPE = {
+  frame_id: number;
+  resolution: number[];
+  webcam_timestamp: number;
+  fps: string;
+  avg_fps: string;
+  no_of_poses: number;
+  kpts: WEBCAM_KEYPOINT_TYPE[];
+};
+
+// Define the type for a MediaPipe landmark
+// type LANDMARK_TYPE = {
+//   x: number;
+//   y: number;
+//   z: number;
+//   visibility?: number;
+// };
+
+const Page = ({ params }: { params: Promise<{ video: string }> }) => {
   const router = useRouter();
   const { video } = use(params);
   const { encodedVideoUrl } = useVideo();
@@ -70,19 +124,34 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
   const videoLastTimestampRef = useRef<number>(performance.now());
   const webcamLastTimestampRef = useRef<number>(performance.now());
 
-  const [videoDetectedKeypoints, setVideoDetectedKeypoints] = useState<any[]>(
+  // const [videoDetectedKeypoints, setVideoDetectedKeypoints] = useState<any[]>(
+  //   []
+  // );
+  // const [webcamDetectedKeypoints, setWebcamDetectedKeypoints] = useState<any[]>(
+  //   []
+  // );
+  const videoDetectedKeypointsRef = useRef<VIDEO_DETECTED_KEYPOINTS_TYPE[]>([]);
+  const webcamDetectedKeypointsRef = useRef<WEBCAM_DETECTED_KEYPOINTS_TYPE[]>(
     []
   );
-  const [webcamDetectedKeypoints, setWebcamDetectedKeypoints] = useState<any[]>(
-    []
-  );
-  const videoDetectedKeypointsRef = useRef<any[]>([]);
-  const webcamDetectedKeypointsRef = useRef<any[]>([]);
 
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [videoStarted, setVideoStarted] = useState(false); // Tracks if video has been started
 
   const [webcamRunning, setWebcamRunning] = useState(false);
+
+  // State to control the ThinkingAnimation
+  const [isThinking, setIsThinking] = useState(true);
+
+  // Ref to store the update function from ThinkingAnimation
+  const updateKeypointsRef = useRef<
+    (keypoints: VIDEO_DETECTED_KEYPOINTS_TYPE[]) => void
+  >(() => {});
+
+  // Update isThinking based on videoPlaying
+  useEffect(() => {
+    setIsThinking(videoPlaying);
+  }, [videoPlaying]);
 
   /* // START: customize detection keypoints drawing
   // Define left and right side indices
@@ -149,10 +218,10 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
 
       const modelLiteUrl =
         "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task";
-      const modelFullUrl =
-        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task";
-      const modelHeavyUrl =
-        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task";
+      // const modelFullUrl =
+      //   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task";
+      // const modelHeavyUrl =
+      //   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task";
       const landmarker = await PoseLandmarker.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath: modelLiteUrl,
@@ -170,9 +239,10 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
       } else {
         setWebcamPoseLandmarker(landmarker);
       }
-    } catch (err: any) {
-      console.error(`Error initializing ${type} PoseLandmarker:`, err);
-      setError(`Failed to initialize ${type} PoseLandmarker: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      console.error(`Error initializing ${type} PoseLandmarker:`, errorMessage);
+      setError(`Failed to initialize ${type} PoseLandmarker: ${errorMessage}`);
     }
   };
 
@@ -180,7 +250,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
     if (videoRef.current && !videoStarted) {
       videoRef.current.src = decodedVideoUrl;
       console.log("Video source set to:", videoRef.current.src);
-      setVideoDetectedKeypoints([]);
+      // setVideoDetectedKeypoints([]);
       videoDetectedKeypointsRef.current = [];
 
       videoRef.current.onloadeddata = () => {
@@ -264,9 +334,10 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
       if (selectedDeviceId === null && webcamDevices.length > 0) {
         setSelectedDeviceId(webcamDevices[0].deviceId);
       }
-    } catch (err: any) {
-      console.error("Error enumerating devices:", err);
-      setError(`Failed to enumerate devices: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      console.error("Error accessing webcam:", errorMessage);
+      setError(`Failed to access webcam: ${errorMessage}`);
     }
   };
 
@@ -290,7 +361,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           webcamRef.current!.srcObject = stream;
           webcamRef.current!.play();
 
-          setWebcamDetectedKeypoints([]);
+          // setWebcamDetectedKeypoints([]);
           webcamDetectedKeypointsRef.current = [];
           console.log("Webcam ready");
         })
@@ -443,7 +514,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
       const avg_fps =
         frameCount === 1 ? fps : prevAvgFps + (fps - prevAvgFps) / frameCount;
 
-      let keypoints_data = {
+      const keypoints_data = {
         frame_id: frame_id,
         resolution: [
           videoRef.current!.videoWidth,
@@ -475,7 +546,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           canvasCtx,
           keypoints_data.kpts,
           canvasRef.current!.width,
-          canvasRef.current!.height,
+          canvasRef.current!.height
         );
       }
 
@@ -486,6 +557,11 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         keypoints_data,
       ];
       videoLastFrameIdRef.current = frame_id;
+      
+      // Update ThinkingAnimation imperatively, throttling to every 5 frames
+      if (frame_id % 1 == 0) {
+        updateKeypointsRef.current(videoDetectedKeypointsRef.current);
+      }
 
       canvasCtx.restore();
     });
@@ -538,12 +614,12 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         );
 
         // Draw video skeleton (blue, semi-transparent) using matching frame_id
-        let skeletonKeypoint = videoDetectedKeypointsRef.current.find(
+        const skeletonKeypoint = videoDetectedKeypointsRef.current.find(
           (k) => k.frame_id == frame_id
         );
 
         if (skeletonKeypoint && skeletonKeypoint.kpts.length > 0) {
-          const landmarks = skeletonKeypoint.kpts.map((kpt: any) => ({
+          const landmarks = skeletonKeypoint.kpts.map((kpt) => ({
             x: kpt.normalized_coords[0],
             y: kpt.normalized_coords[1],
             z: kpt.normalized_coords[2],
@@ -569,7 +645,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           console.warn("WEBCAM: No landmarks detected in this frame");
         }
 
-        let distances: { [kpt_id: number]: number } = {}; // Store distances per keypoint ID
+        const distances: { [kpt_id: number]: number } = {}; // Store distances per keypoint ID
 
         for (const landmarks of webcamResult.landmarks) {
           // Ensure landmarks is an array before filtering
@@ -674,7 +750,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
           const skeletonKpts = skeletonKeypoint ? skeletonKeypoint.kpts : [];
 
           if (skeletonKpts.length > 0) {
-            skeletonKpts.forEach((skeletonKpt: any) => {
+            skeletonKpts.forEach((skeletonKpt) => {
               const skeletonX = skeletonKpt.coords[0]; // Pixel coords from predictVideo
               const skeletonY = skeletonKpt.coords[1];
               const kptId = skeletonKpt.kpt_id;
@@ -715,71 +791,70 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
               canvasCtx.closePath();
             });
           }
+
+          // Calculate average FPS
+          const prevKeypoints = webcamDetectedKeypointsRef.current;
+          const prevAvgFps =
+            prevKeypoints.length > 0
+              ? parseFloat(prevKeypoints[prevKeypoints.length - 1].avg_fps)
+              : 0;
+          const frameCount = frame_id + 1; // frame_id starts at 0, so +1 gives total frames
+          const avg_fps =
+            frameCount === 1
+              ? fps
+              : prevAvgFps + (fps - prevAvgFps) / frameCount;
+
+          const keypoints_data = {
+            frame_id: frame_id,
+            resolution: [
+              webcamRef.current!.videoWidth,
+              webcamRef.current!.videoHeight,
+            ],
+            webcam_timestamp: webcamRef.current!.currentTime,
+            fps: fps.toFixed(2),
+            avg_fps: avg_fps.toFixed(2),
+            no_of_poses: webcamResult.landmarks.length,
+            kpts:
+              webcamResult.landmarks &&
+              webcamResult.landmarks.length > 0 &&
+              webcamResult.landmarks[0]
+                ? webcamResult.landmarks[0].map((landmark, index) => {
+                    // Safely find the matching skeleton keypoint
+                    const matchingSkeletonKpt = skeletonKeypoint?.kpts.find(
+                      (kpt) => kpt.kpt_id === index
+                    );
+
+                    return {
+                      frame_id: frame_id,
+                      kpt_id: index,
+                      normalized_coords: [landmark.x, landmark.y, landmark.z],
+                      coords: [
+                        landmark.x * webcamRef.current!.videoWidth,
+                        landmark.y * webcamRef.current!.videoHeight,
+                        landmark.z,
+                      ],
+                      visibility: landmark.visibility,
+                      skeleton_normalized_coords: matchingSkeletonKpt
+                        ? matchingSkeletonKpt.normalized_coords
+                        : null,
+                      skeleton_coords: matchingSkeletonKpt
+                        ? matchingSkeletonKpt.coords
+                        : null,
+                      distance: distances[index] || null,
+                    };
+                  })
+                : [],
+          };
+          // console.log("webcam keypoints:", keypoints_data);
+          // setWebcamDetectedKeypoints((prev) => [...prev, keypoints_data]);
+          webcamDetectedKeypointsRef.current = [
+            ...webcamDetectedKeypointsRef.current,
+            keypoints_data,
+          ];
+          webcamLastFrameIdRef.current = frame_id;
+
+          canvasCtx.restore();
         }
-
-        // Calculate average FPS
-        const prevKeypoints = webcamDetectedKeypointsRef.current;
-        const prevAvgFps =
-          prevKeypoints.length > 0
-            ? parseFloat(prevKeypoints[prevKeypoints.length - 1].avg_fps)
-            : 0;
-        const frameCount = frame_id + 1; // frame_id starts at 0, so +1 gives total frames
-        const avg_fps =
-          frameCount === 1 ? fps : prevAvgFps + (fps - prevAvgFps) / frameCount;
-
-        let keypoints_data = {
-          frame_id: frame_id,
-          resolution: [
-            webcamRef.current!.videoWidth,
-            webcamRef.current!.videoHeight,
-          ],
-          webcam_timestamp: webcamRef.current!.currentTime,
-          fps: fps.toFixed(2),
-          avg_fps: avg_fps.toFixed(2),
-          no_of_poses: webcamResult.landmarks.length,
-          kpts:
-            webcamResult.landmarks &&
-            webcamResult.landmarks.length > 0 &&
-            webcamResult.landmarks[0]
-              ? webcamResult.landmarks[0].map((landmark, index) => ({
-                  frame_id: frame_id,
-                  kpt_id: index,
-                  normalized_coords: [landmark.x, landmark.y, landmark.z],
-                  coords: [
-                    landmark.x * webcamRef.current!.videoWidth,
-                    landmark.y * webcamRef.current!.videoHeight,
-                    landmark.z,
-                  ],
-                  visibility: landmark.visibility,
-                  skeleton_normalized_coords: skeletonKeypoint.kpts.find(
-                    (kpt: any) => kpt.kpt_id === index
-                  )
-                    ? skeletonKeypoint.kpts.find(
-                        (kpt: any) => kpt.kpt_id === index
-                      ).normalized_coords
-                    : null,
-                  skeleton_coords: skeletonKeypoint.kpts.find(
-                    (kpt: any) => kpt.kpt_id === index
-                  )
-                    ? skeletonKeypoint.kpts.find(
-                        (kpt: any) => kpt.kpt_id === index
-                      ).coords
-                    : null,
-                  distance: distances[index] || null,
-                }))
-              : [],
-          // skeleton_keypoints: skeletonKeypoint ? skeletonKeypoint.kpts : null,
-          // distances: distances,
-        };
-        // console.log("webcam keypoints:", keypoints_data);
-        // setWebcamDetectedKeypoints((prev) => [...prev, keypoints_data]);
-        webcamDetectedKeypointsRef.current = [
-          ...webcamDetectedKeypointsRef.current,
-          keypoints_data,
-        ];
-        webcamLastFrameIdRef.current = frame_id;
-
-        canvasCtx.restore();
       }
     );
 
@@ -901,7 +976,7 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         // 2. Initialize PoseLandmarkers
         if (!videoPoseLandmarker && !webcamPoseLandmarker) {
           console.log("Initializing PoseLandmarkers...");
-          const [videoLandmarker, webcamLandmarker] = await Promise.all([
+          await Promise.all([
             createPoseLandmarker("video"),
             createPoseLandmarker("webcam"),
           ]);
@@ -918,10 +993,13 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
         ]);
 
         setIsLoading(false); // All dependencies are ready
-      } catch (err: any) {
+      } catch (err: unknown) {
+        // Narrow the type of err to Error to safely access err.message
+        const errorMessage =
+          err instanceof Error ? err.message : "An unknown error occurred";
         console.error("Initialization error:", err);
-        setError(err.message);
-        if (err.message.includes("Blob URL expired or invalid")) {
+        setError(errorMessage);
+        if (errorMessage.includes("Blob URL expired or invalid")) {
           router.push("/");
         }
         setIsLoading(false); // Show error state even if loading fails
@@ -957,6 +1035,12 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
       setDecodedVideoUrl(newDecodedUrl);
     }
   }, [encodedVideoUrl]);
+
+  useEffect(() => {
+    if (error) {
+      toast(error);
+    }
+  }, [error]);
 
   /* useEffect(() => {
     setupWebcam();
@@ -1163,20 +1247,32 @@ const page = ({ params }: { params: Promise<{ video: string }> }) => {
               )}
             </div>
           </div>
-          <div className="w-full flex justify-start items-center gap-2 mt-2">
+
+          <div className="w-full flex flex-col justify-start items-start gap-2 my-2">
             {/* FPS Chart */}
-            <div className="w-[100%]">
+            <div className="w-full">
               <FpsChart
                 videoDetectedKeypointsRef={videoDetectedKeypointsRef}
                 webcamDetectedKeypointsRef={webcamDetectedKeypointsRef}
                 videoPlaying={videoPlaying}
               />
             </div>
+
+            {/* Add the ThinkingAnimation component */}
+            <div className="w-full">
+              <ThinkingAnimation
+                isThinking={isThinking}
+                updateKeypoints={(callback) => {
+                  updateKeypointsRef.current = callback;
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
+      <Toaster />
     </div>
   );
 };
 
-export default page;
+export default Page;

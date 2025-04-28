@@ -1,14 +1,8 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
-import {
-  FilesetResolver,
-  PoseLandmarker,
-  DrawingUtils,
-} from "@mediapipe/tasks-vision";
 
 // components
-import WebcamTracking from "../components/WebcamTracking";
-import VideoTracking from "../components/VideoTracking";
+// import WebcamTracking from "../components/WebcamTracking";
+// import VideoTracking from "../components/VideoTracking";
 import Main from "../components/Main";
 
 export default function Home() {

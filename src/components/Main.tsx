@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 // ui
@@ -16,12 +16,14 @@ const Main = () => {
   const router = useRouter();
   // const dispatch = useDispatch();
   const { setVideo, videoUrl, encodedVideoUrl, videoBlob, videoName } = useVideo();
+  const [isLoading, setIsLoading] = useState(false);
 
   const [file, setFile] = useState<File>();
   // const [encodedVideoUrl, setEncodedVideoUrl] = useState<string | null>(null);
 
   const handleFileUpload = async (file: File): Promise<void> => {
     setFile(file);
+    setIsLoading(true);
     console.log(file);
 
     // Use the context to set the video
@@ -36,6 +38,7 @@ const Main = () => {
         'videoName': videoName,
       });
     }
+    setIsLoading(false);
 
     // const arrayBuffer = await file.arrayBuffer();
     // dispatch(
@@ -56,7 +59,7 @@ const Main = () => {
     <div className="flex flex-col items-center justify-center w-full h-full">
       <FileUpload onChange={handleFileUpload} />
       <div className="flex justify-center items-center">
-        {file && encodedVideoUrl && (
+        {!isLoading && file && encodedVideoUrl &&  (
           <Button
             className=" cursor-pointer"
             onClick={() =>

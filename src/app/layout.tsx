@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Template from "@/app/template";
 import { Providers } from "@/store/Providers";
 
 // import PageTransitionFade from "./components/PageTransitionFade";

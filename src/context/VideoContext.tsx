@@ -26,7 +26,7 @@ const openDB = (): Promise<IDBDatabase> =>
     const store = tx.objectStore('videos');
     store.put(blob, 'currentVideo');
     return new Promise((resolve) => {
-      tx.oncomplete = (_ev: Event) => resolve(); // Explicitly type the event and ignore it
+      tx.oncomplete = () => resolve(); // Explicitly type the event and ignore it
     });
   };
 
