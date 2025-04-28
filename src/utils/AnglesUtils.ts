@@ -66,7 +66,7 @@ export const drawInteriorSector = (
   width: number,
   height: number
 ): void => {
-  if (!center || !ptA || !ptB) return; // Skip if any point is null
+  if (!center || !ptA || !ptB || !width || !height) return; // Skip if any point is null
 
   const radius = 10;
   const arcColor = "rgba(242, 165, 88, 1)"; // Orange outline

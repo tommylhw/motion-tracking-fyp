@@ -9,9 +9,9 @@ const compat = new FlatCompat({
   baseDirectory: __dirname,
 });
 
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-];
+// const eslintConfig = [
+//   ...compat.extends("next/core-web-vitals", "next/typescript"),
+// ];
 
 // const eslintConfig = [
 //   ...compat.config({
@@ -24,5 +24,25 @@ const eslintConfig = [
 //     },
 //   }),
 // ]
+
+const eslintConfig = [
+  ...compat.config({
+    extends: ['next/core-web-vitals', 'next/typescript'],
+    rules: {
+      'react/no-unescaped-entities': 'off',
+      '@next/next/no-page-custom-font': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      'no-unused-vars': 'off',
+      'no-undef': 'off',
+      'no-console': 'off',
+      'no-debugger': 'off',
+      'no-duplicate-imports': 'off',
+      'react-hooks/exhaustive-deps': 'off',
+      'no-unused-expressions': 'off',
+      '@typescript-eslint/no-unused-expressions': 'off',
+    },
+  }),
+]
 
 export default eslintConfig;

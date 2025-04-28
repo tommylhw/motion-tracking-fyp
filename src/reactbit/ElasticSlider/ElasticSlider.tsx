@@ -17,7 +17,7 @@ interface ElasticSliderProps {
   isStepped?: boolean;
   stepSize?: number;
   leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  // rightIcon?: React.ReactNode;
   onValueChange?: (value: number) => void; // New prop to communicate value changes to parent
 }
 
@@ -29,7 +29,7 @@ const ElasticSlider: React.FC<ElasticSliderProps> = ({
   isStepped = false,
   stepSize = 1,
   leftIcon = <>-</>,
-  rightIcon = <>+</>,
+  // rightIcon = <>+</>,
   onValueChange, // Destructure the new prop
 }) => {
   return (
@@ -43,7 +43,7 @@ const ElasticSlider: React.FC<ElasticSliderProps> = ({
         isStepped={isStepped}
         stepSize={stepSize}
         leftIcon={leftIcon}
-        rightIcon={rightIcon}
+        // rightIcon={rightIcon}
         onValueChange={onValueChange} // Pass the new prop to the Slider components
       />
     </div>
@@ -57,7 +57,7 @@ interface SliderProps {
   isStepped: boolean;
   stepSize: number;
   leftIcon: React.ReactNode;
-  rightIcon: React.ReactNode;
+  // rightIcon: React.ReactNode;
   onValueChange?: (value: number) => void; // Add to SliderProps
 } 
 
@@ -68,7 +68,7 @@ const Slider: React.FC<SliderProps> = ({
   isStepped,
   stepSize,
   leftIcon,
-  rightIcon,
+  // rightIcon,
   onValueChange, // Destructure the prop
 }) => {
   const [value, setValue] = useState<number>(defaultValue);
