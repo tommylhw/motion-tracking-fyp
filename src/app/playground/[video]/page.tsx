@@ -85,6 +85,14 @@ type WEBCAM_DETECTED_KEYPOINTS_TYPE = {
 //   visibility?: number;
 // };
 
+export async function generateStaticParams() {
+  const video = "";
+ 
+  return {
+    video: video,
+  }
+}
+
 const Page = ({ params }: { params: Promise<{ video: string }> }) => {
   const router = useRouter();
   const { video } = use(params);
