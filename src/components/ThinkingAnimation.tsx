@@ -52,7 +52,7 @@ const ThinkingAnimation: React.FC<ThinkingAnimationProps> = ({
   const appendKeypoint = (item: VIDEO_DETECTED_KEYPOINTS_TYPE) => {
     if (!containerRef.current) return;
 
-    console.log(`Appending keypoint for frame ${item.frame_id}`);
+    // console.log(`Appending keypoint for frame ${item.frame_id}`);
 
     const newElement = document.createElement("div");
     newElement.className = "p-2 bg-gray-700 text-white rounded-md";
@@ -128,13 +128,13 @@ const ThinkingAnimation: React.FC<ThinkingAnimationProps> = ({
   // Update function that will be called by the parent
   useEffect(() => {
     updateKeypoints((keypoints: VIDEO_DETECTED_KEYPOINTS_TYPE[]) => {
-      console.log(`updateKeypoints called with ${keypoints.length} items, isThinking: ${isThinking}`);
+      // console.log(`updateKeypoints called with ${keypoints.length} items, isThinking: ${isThinking}`);
 
       if (!isThinking) return;
 
       // Process only new keypoints
       const newItems = keypoints.filter(item => item.frame_id > lastFrameIdRef.current);
-      console.log(`Found ${newItems.length} new items to process`);
+      // console.log(`Found ${newItems.length} new items to process`);
       if (newItems.length > 0) {
         newItems.forEach(item => {
           appendKeypoint(item);

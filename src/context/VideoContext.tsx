@@ -68,7 +68,7 @@ export const VideoProvider = ({ children }: { children: React.ReactNode }) => {
       'encodedVideoUrl': encodedVideoUrl,
       'videoName': videoName,
     });
-  }, [videoBlob, videoUrl, encodedVideoUrl, videoName]);
+  }, []);
 
   // Set video and persist to IndexedDB
   const setVideo = async (file: File): Promise<void> => {
