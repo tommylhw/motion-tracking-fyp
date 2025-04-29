@@ -20,11 +20,14 @@ const openDB = (): Promise<IDBDatabase> =>
     request.onsuccess = () => resolve(request.result);
   });
 
-  const storeBlob = async (blob: Blob): Promise<void> => {
+  const storeBlob = async (blob: Blob, videoName: string): Promise<void> => {
     const db = await openDB();
     const tx = db.transaction('videos', 'readwrite');
     const store = tx.objectStore('videos');
-    store.put(blob, 'currentVideo');
+    store.put({
+      blob: blob,
+      videoName: videoName
+    }, 'currentVideo');
     return new Promise((resolve) => {
       tx.oncomplete = () => resolve(); // Explicitly type the event and ignore it
     });
@@ -36,7 +39,7 @@ const getBlob = async (): Promise<Blob | undefined> => {
   const store = tx.objectStore("videos");
   return new Promise((resolve) => {
     const request = store.get("currentVideo");
-    request.onsuccess = () => resolve(request.result as Blob | undefined);
+    request.onsuccess = () => resolve(request.result?.blob as Blob | undefined);
   });
 };
 
@@ -59,15 +62,20 @@ export const VideoProvider = ({ children }: { children: React.ReactNode }) => {
         setVideoBlob(blob);
         setVideoUrl(url);
         setVideoName("restored");
+        console.table({
+          'restoredBlob': blob,
+          'restoredUrl': url,
+          'encodedRestoredUrl': encodedUrl,
+        })
       }
     });
 
-    console.table({
-      'videoBlob': videoBlob,
-      'videoUrl': videoUrl,
-      'encodedVideoUrl': encodedVideoUrl,
-      'videoName': videoName,
-    });
+    // console.table({
+    //   'videoBlob': videoBlob,
+    //   'videoUrl': videoUrl,
+    //   'encodedVideoUrl': encodedVideoUrl,
+    //   'videoName': videoName,
+    // });
   }, []);
 
   // Set video and persist to IndexedDB
@@ -79,7 +87,7 @@ export const VideoProvider = ({ children }: { children: React.ReactNode }) => {
     setVideoBlob(blob);
     setVideoUrl(url);
     setVideoName(file.name);
-    await storeBlob(blob); // Persist to IndexedDB
+    await storeBlob(blob, file.name); // Persist to IndexedDB
   };
 
   const value: VideoContextValue = { videoBlob, videoUrl, encodedVideoUrl, videoName, setVideo };

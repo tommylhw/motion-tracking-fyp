@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // ui
@@ -24,13 +24,14 @@ const Main = () => {
   const handleFileUpload = async (file: File): Promise<void> => {
     setFile(file);
     setIsLoading(true);
-    console.log(file);
+    console.log('File uploaded:', file);
 
     // Use the context to set the video
     await setVideo(file);
 
     if (videoUrl && encodedVideoUrl && videoBlob && videoName) { 
       // setEncodedVideoUrl(videoUrl);
+      console.log("Main.tsx video table");
       console.table({
         'videoBlob': videoBlob,
         'videoUrl': videoUrl,
@@ -38,22 +39,20 @@ const Main = () => {
         'videoName': videoName,
       });
     }
-    setIsLoading(false);
-
-    // const arrayBuffer = await file.arrayBuffer();
-    // dispatch(
-    //   setVideo({
-    //     data: arrayBuffer,
-    //     fileName: file.name,
-    //   })
-    // );
-    // if (file) {
-    //   const blob = new Blob([arrayBuffer], { type: file.type });
-    //   const url = URL.createObjectURL(blob);
-    //   const encodedBlobUrl = encodeURIComponent(url);
-    //   setBlobUrl(encodedBlobUrl);
-    // }
   };
+
+  useEffect(() => {
+    if (videoUrl && encodedVideoUrl && videoBlob && videoName) {
+      console.log("Video ready in IndexedDB");
+      console.table({
+        'videoBlob': videoBlob,
+        'videoUrl': videoUrl,
+        'encodedVideoUrl': encodedVideoUrl,
+        'videoName': videoName,
+      });
+      setIsLoading(false);
+    }
+  }, [encodedVideoUrl])
 
   return (
     <div className="flex flex-col items-center justify-center w-full h-full">
