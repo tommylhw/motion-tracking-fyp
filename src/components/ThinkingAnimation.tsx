@@ -150,7 +150,7 @@ const ThinkingAnimation: React.FC<ThinkingAnimationProps> = ({
           <h3 className="text-lg font-semibold text-white">Processing Keypoints...</h3>
           <div
             ref={containerRef}
-            className="space-y-2 max-h-[300px] overflow-y-auto [mask-image:linear-gradient(to_bottom,transparent_0%,rgba(30,42,56,1)_10%,rgba(30,42,56,1)_90%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,rgba(30,42,56,1)_10%,rgba(30,42,56,1)_90%,transparent_100%)]"
+            className="space-y-2 max-h-[300px] overflow-y-auto " // [mask-image:linear-gradient(to_bottom,transparent_0%,rgba(30,42,56,1)_10%,rgba(30,42,56,1)_90%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,rgba(30,42,56,1)_10%,rgba(30,42,56,1)_90%,transparent_100%)]
           />
         </div>
     </div>

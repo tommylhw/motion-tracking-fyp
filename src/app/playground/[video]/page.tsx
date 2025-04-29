@@ -270,14 +270,6 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
   };
 
   const setupVideo = () => {
-    console.log(
-      "videoRef.current:",
-      videoRef.current,
-      "videoStarted:",
-      videoStarted,
-      "decodedVideoUrl:",
-      decodedVideoUrl
-    );
     if (videoRef.current && !videoStarted) {
       videoRef.current.src = decodedVideoUrl;
       console.log("Video source set to:", videoRef.current.src);
@@ -996,50 +988,62 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
     }
   };
 
+  const initialize = async () => {
+    try {
+      // 1. Handle video URL
+      if (!decodedVideoUrl) throw new Error("No video URL provided");
+
+      // 2. Initialize PoseLandmarkers
+      if (!videoPoseLandmarker && !webcamPoseLandmarker) {
+        console.log("Initializing PoseLandmarkers...");
+        await Promise.all([
+          createPoseLandmarker("video"),
+          createPoseLandmarker("webcam"),
+        ]);
+      }
+
+      // 3. Get webcam devices and set initial device ID
+      await getWebcamDevices();
+
+      // 4. Setup video and webcam
+      console.log("Setting up video and webcam...");
+      console.table({
+        videoRef: videoRef.current,
+        webcamRef: webcamRef.current,
+        decodedVideoUrl: decodedVideoUrl,
+      });
+      setupVideo(), // Setup video
+        setIsLoading(false); // All dependencies are ready
+    } catch (err: unknown) {
+      // Narrow the type of err to Error to safely access err.message
+      const errorMessage =
+        err instanceof Error ? err.message : "An unknown error occurred";
+      console.error("Initialization error:", err);
+      setError(errorMessage);
+      if (errorMessage.includes("Blob URL expired or invalid")) {
+        router.push("/");
+      }
+      setIsLoading(false); // Show error state even if loading fails
+    }
+  };
+
   // Centralized loading logic
   useEffect(() => {
     setIsLoading(true);
-    const initialize = async () => {
-      try {
-        // 1. Handle video URL
-        if (!decodedVideoUrl) throw new Error("No video URL provided");
 
-        // 2. Initialize PoseLandmarkers
-        if (!videoPoseLandmarker && !webcamPoseLandmarker) {
-          console.log("Initializing PoseLandmarkers...");
-          await Promise.all([
-            createPoseLandmarker("video"),
-            createPoseLandmarker("webcam"),
-          ]);
-        }
-
-        // 3. Get webcam devices and set initial device ID
-        await getWebcamDevices();
-
-        // 4. Setup video and webcam
-        console.log("Setting up video and webcam...");
-        await Promise.all([
-          setupVideo(), // Setup video
-          // setupWebcam(), // Setup webcam
-        ]);
-
-        setIsLoading(false); // All dependencies are ready
-      } catch (err: unknown) {
-        // Narrow the type of err to Error to safely access err.message
-        const errorMessage =
-          err instanceof Error ? err.message : "An unknown error occurred";
-        console.error("Initialization error:", err);
-        setError(errorMessage);
-        if (errorMessage.includes("Blob URL expired or invalid")) {
-          router.push("/");
-        }
-        setIsLoading(false); // Show error state even if loading fails
-      }
-    };
+    // const checkRef = () => {
+    //   if (videoRef.current && webcamRef.current) {
+    //     console.log("ref is ready, initializing...");
+    //     initialize();
+    //   } else {
+    //     console.log("ref is null, polling...");
+    //     setTimeout(checkRef, 1000); // Poll every 100ms
+    //   }
+    // };
 
     setTimeout(() => {
       initialize();
-    }, 1000);
+    }, 2000);
 
     return () => {
       if (videoRafIdRef.current) cancelAnimationFrame(videoRafIdRef.current);
@@ -1050,7 +1054,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
           .forEach((track) => track.stop());
       }
     };
-  }, [decodedVideoUrl]); // Re-run if URL or device ID changes
+  }, [decodedVideoUrl]);
 
   useEffect(() => {
     const switchWebcam = async () => {
