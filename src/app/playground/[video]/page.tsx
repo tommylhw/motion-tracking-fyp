@@ -269,7 +269,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
     }
   };
 
-  const setupVideo = () => {
+  const setupVideo = async () => {
     if (videoRef.current && !videoStarted) {
       videoRef.current.src = decodedVideoUrl;
       console.log("Video source set to:", videoRef.current.src);
@@ -357,6 +357,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
       if (selectedDeviceId === null && webcamDevices.length > 0) {
         setSelectedDeviceId(webcamDevices[0].deviceId);
       }
+      return webcamDevices;
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
       console.error("Error accessing webcam:", errorMessage);
@@ -364,14 +365,27 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
     }
   };
 
-  const setupWebcam = () => {
+  const setupWebcam = async () => {
+    console.log("setupWebcam: Starting, webcamDevices:", webcamDevices);
+    if (!webcamRef.current || !webcamCanvasRef.current) {
+      throw new Error("Webcam or canvas element not initialized");
+    }
+
+    // Ensure webcam devices are populated
+    if (!webcamDevices.length) {
+      console.log("setupWebcam: No webcam devices found, fetching devices...");
+      await getWebcamDevices();
+    }
+
+    // Use selectedDeviceId or fall back to the first device's ID
+    const deviceId = selectedDeviceId || await getWebcamDevices().then(devices => devices![0].deviceId);
+    console.log("setupWebcam: Using device ID:", deviceId);
+
     if (webcamRef.current && webcamCanvasRef.current) {
       console.log("Setting up webcam with device ID:", selectedDeviceId);
       const constraints = {
         video: {
-          deviceId: selectedDeviceId
-            ? { exact: selectedDeviceId }
-            : webcamDevices[0].deviceId,
+          deviceId: deviceId ? { exact: deviceId } : undefined,
           width: resizedVideoWidth.current, // Force exact width
           height: resizedVideoHeight.current, // Force exact height
           aspectRatio: { exact: videoAspectRatio.current }, // Force exact aspect ratio
@@ -898,9 +912,6 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
       !videoPlaying
     ) {
       if (!videoStarted) {
-        // setupVideo();
-        // setupWebcam();
-
         if (
           videoRef.current &&
           webcamRef.current &&
@@ -1003,7 +1014,11 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
       }
 
       // 3. Get webcam devices and set initial device ID
+      console.log("initialize: Fetching webcam devices...");
       await getWebcamDevices();
+      if (webcamDevices.length > 0 && !selectedDeviceId) {
+        setSelectedDeviceId(webcamDevices[0].deviceId);
+      }
 
       // 4. Setup video and webcam
       console.log("Setting up video and webcam...");
@@ -1011,9 +1026,12 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
         videoRef: videoRef.current,
         webcamRef: webcamRef.current,
         decodedVideoUrl: decodedVideoUrl,
+        webcamDevices: webcamDevices,
       });
-      setupVideo(), // Setup video
-        setIsLoading(false); // All dependencies are ready
+
+      await setupVideo();
+      await setupWebcam();
+      setIsLoading(false); // All dependencies are ready
     } catch (err: unknown) {
       // Narrow the type of err to Error to safely access err.message
       const errorMessage =
@@ -1031,19 +1049,21 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
   useEffect(() => {
     setIsLoading(true);
 
-    // const checkRef = () => {
-    //   if (videoRef.current && webcamRef.current) {
-    //     console.log("ref is ready, initializing...");
-    //     initialize();
-    //   } else {
-    //     console.log("ref is null, polling...");
-    //     setTimeout(checkRef, 1000); // Poll every 100ms
-    //   }
-    // };
+    const checkRef = () => {
+      if (videoRef.current && webcamRef.current && webcamDevices) {
+        console.log("ref is ready, initializing...");
+        initialize();
+      } else {
+        console.log("ref is null, polling...");
+        setTimeout(checkRef, 1000); // Poll every 100ms
+      }
+    };
 
-    setTimeout(() => {
-      initialize();
-    }, 2000);
+    checkRef();
+
+    // setTimeout(() => {
+    //   initialize();
+    // }, 2000);
 
     return () => {
       if (videoRafIdRef.current) cancelAnimationFrame(videoRafIdRef.current);
@@ -1056,12 +1076,19 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
     };
   }, [decodedVideoUrl]);
 
+  // useEffect(() => {
+  //   const switchWebcam = async () => {
+  //     setupWebcam();
+  //   };
+  //   switchWebcam();
+  // }, [selectedDeviceId]);
+
   useEffect(() => {
-    const switchWebcam = async () => {
+    if (selectedDeviceId && webcamDevices.length > 0) {
+      console.log("useEffect: Switching webcam to device ID:", selectedDeviceId);
       setupWebcam();
-    };
-    switchWebcam();
-  }, [selectedDeviceId]);
+    }
+  }, [selectedDeviceId, webcamDevices]);
 
   // Update decodedVideoUrl when encodedVideoUrl changes
   useEffect(() => {
@@ -1132,7 +1159,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
 
   return (
     <div className="flex justify-center items-start">
-      {isLoading ? (
+      {isLoading && (
         <div className="w-screen h-screen flex justify-center items-center border-2">
           <PulseLoader
             color={"#181818"}
@@ -1145,166 +1172,171 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
             // cssOverride={{ display: "block", margin: "0 auto" }}
           />
         </div>
-      ) : (
-        <div className="w-full h-full mt-5 flex flex-col items-center justify-center gap-2 max-w-[1200px]">
-          {/* Video and Webcam display */}
-          <div className=" w-full flex items-start justify-center gap-4">
-            <div className="relative w-[50%] shadow-(--shadow-custom-light) rounded-md">
-              <video
-                ref={videoRef}
-                width={resizedVideoWidth.current} // Bind to state
-                height={resizedVideoHeight.current} // Bind to state
-                playsInline
-                className="rounded-md "
-              />
-              <canvas
-                ref={canvasRef}
-                width={resizedVideoWidth.current}
-                height={resizedVideoHeight.current}
-                className="absolute top-0 left-0 w-full h-full rounded-md"
-              />
-            </div>
-            <div className="relative w-[50%] shadow-(--shadow-custom-light) rounded-md">
-              <video
-                ref={webcamRef}
-                width={resizedVideoWidth.current} // Bind to state
-                height={resizedVideoHeight.current} // Bind to state
-                playsInline
-                className="rounded-md"
-              />
-              <canvas
-                ref={webcamCanvasRef}
-                width={resizedVideoWidth.current} // Bind to state
-                height={resizedVideoHeight.current} // Bind to state
-                className="absolute top-0 left-0 w-full h-full rounded-md "
-              />
-            </div>
-          </div>
-          {/* Video and Webcam controls */}
-          <div className="w-full flex justify-center items-center gap-2 mt-1">
-            <div className="w-[50%] h-full flex justify-between items-center gap-2 bg-custom-surface rounded-md px-[6px] border-1">
-              <div>
-                {videoPlaying ? (
-                  <Button
-                    className="hover:rounded-[5px] w-7 h-7 text-white flex justify-center items-center cursor-pointer"
-                    onClick={handlePause}
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 25 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      transform="rotate(0 0 0)"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                        d="M7 3.25C5.75736 3.25 4.75 4.25736 4.75 5.5V18.4999C4.75 19.7426 5.75736 20.75 7 20.75H8.75C9.99264 20.75 11 19.7426 11 18.4999V5.5C11 4.25736 9.99264 3.25 8.75 3.25H7ZM6.25 5.5C6.25 5.08579 6.58579 4.75 7 4.75H8.75C9.16421 4.75 9.5 5.08579 9.5 5.5V18.4999C9.5 18.9142 9.16421 19.2499 8.75 19.2499H7C6.58579 19.2499 6.25 18.9142 6.25 18.4999V5.5Z"
-                        fill="#fff"
-                      />
-                      <path
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                        d="M16.25 3.25C15.0074 3.25 14 4.25736 14 5.5V18.4999C14 19.7426 15.0074 20.75 16.25 20.75H18C19.2426 20.75 20.25 19.7426 20.25 18.4999V5.5C20.25 4.25736 19.2426 3.25 18 3.25H16.25ZM15.5 5.5C15.5 5.08579 15.8358 4.75 16.25 4.75H18C18.4142 4.75 18.75 5.08579 18.75 5.5V18.4999C18.75 18.9142 18.4142 19.2499 18 19.2499H16.25C15.8358 19.2499 15.5 18.9142 15.5 18.4999V5.5Z"
-                        fill="#fff"
-                      />
-                    </svg>
-                  </Button>
-                ) : (
-                  <Button
-                    className="hover:rounded-[5px] w-7 h-7 text-white flex justify-center items-center  cursor-pointer"
-                    onClick={videoStarted ? handleResume : handleStart}
-                    disabled={!videoPoseLandmarker || !webcamPoseLandmarker}
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 25 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      transform="rotate(0 0 0)"
-                    >
-                      <path
-                        d="M19.4357 13.9174C20.8659 13.0392 20.8659 10.9608 19.4357 10.0826L9.55234 4.01389C8.05317 3.09335 6.125 4.17205 6.125 5.93128L6.125 18.0688C6.125 19.828 8.05317 20.9067 9.55234 19.9861L19.4357 13.9174ZM18.6508 11.3609C19.1276 11.6536 19.1276 12.3464 18.6508 12.6391L8.76745 18.7079C8.26772 19.0147 7.625 18.6552 7.625 18.0688L7.625 5.93128C7.625 5.34487 8.26772 4.9853 8.76745 5.29215L18.6508 11.3609Z"
-                        fill="#fff"
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </Button>
-                )}
-              </div>
-              <div className="flex justify-start items-center gap-6">
-                <p className="text-custom-on-surface-container text-[12px]">
-                  Speed:
-                </p>
-                <ElasticSlider
-                  leftIcon={
-                    <RiSpeedUpFill className="text-custom-on-surface-container " />
-                  }
-                  // rightIcon={<>...your icon...</>}
-                  startingValue={0}
-                  defaultValue={100}
-                  maxValue={200}
-                  isStepped={false}
-                  // stepSize={10}
-                  onValueChange={(value) => handleAdjustSpeed(value / 100)}
-                />
-              </div>
-            </div>
-            <div className="w-[50%] h-full flex justify-start items-center gap-2">
-              {/* <p className="text-custom-on-surface-container">Webcam:</p> */}
-              {webcamDevices && (
-                <Select
-                  value={selectedDeviceId || webcamDevices[0]?.deviceId}
-                  onValueChange={(value) => setSelectedDeviceId(value)}
-                >
-                  <SelectTrigger className="w-[180px] cursor-pointer h-full">
-                    <SelectValue placeholder="Select a webcam" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Devies</SelectLabel>
-                      {webcamDevices.length > 0 &&
-                        webcamDevices.map((device) => (
-                          <SelectItem
-                            key={device.deviceId}
-                            value={device.deviceId}
-                            className="cursor-pointer"
-                          >
-                            {device.label || `Device ${device.deviceId}`}
-                          </SelectItem>
-                        ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
+      )}
 
-          <div className="w-full flex flex-col justify-start items-start gap-2 my-2">
-            {/* FPS Chart */}
-            <div className="w-full">
-              <FpsChart
-                videoDetectedKeypointsRef={videoDetectedKeypointsRef}
-                webcamDetectedKeypointsRef={webcamDetectedKeypointsRef}
-                videoPlaying={videoPlaying}
-              />
-            </div>
-
-            {/* Add the ThinkingAnimation component */}
-            <div className="w-full">
-              <ThinkingAnimation
-                isThinking={isThinking}
-                updateKeypoints={(callback) => {
-                  updateKeypointsRef.current = callback;
-                }}
-              />
-            </div>
+      <div
+        className="w-full h-full mt-5 flex flex-col items-center justify-center gap-2 max-w-[1200px]"
+        style={{
+          display: isLoading ? "none" : "flex",
+        }}
+      >
+        {/* Video and Webcam display */}
+        <div className=" w-full flex items-start justify-center gap-4">
+          <div className="relative w-[50%] shadow-(--shadow-custom-light) rounded-md">
+            <video
+              ref={videoRef}
+              width={resizedVideoWidth.current} // Bind to state
+              height={resizedVideoHeight.current} // Bind to state
+              playsInline
+              className="rounded-md "
+            />
+            <canvas
+              ref={canvasRef}
+              width={resizedVideoWidth.current}
+              height={resizedVideoHeight.current}
+              className="absolute top-0 left-0 w-full h-full rounded-md"
+            />
+          </div>
+          <div className="relative w-[50%] shadow-(--shadow-custom-light) rounded-md">
+            <video
+              ref={webcamRef}
+              width={resizedVideoWidth.current} // Bind to state
+              height={resizedVideoHeight.current} // Bind to state
+              playsInline
+              className="rounded-md"
+            />
+            <canvas
+              ref={webcamCanvasRef}
+              width={resizedVideoWidth.current} // Bind to state
+              height={resizedVideoHeight.current} // Bind to state
+              className="absolute top-0 left-0 w-full h-full rounded-md "
+            />
           </div>
         </div>
-      )}
+        {/* Video and Webcam controls */}
+        <div className="w-full flex justify-center items-center gap-2 mt-1">
+          <div className="w-[50%] h-full flex justify-between items-center gap-2 bg-custom-surface rounded-md px-[6px] border-1">
+            <div>
+              {videoPlaying ? (
+                <Button
+                  className="hover:rounded-[5px] w-7 h-7 text-white flex justify-center items-center cursor-pointer"
+                  onClick={handlePause}
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 25 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    transform="rotate(0 0 0)"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M7 3.25C5.75736 3.25 4.75 4.25736 4.75 5.5V18.4999C4.75 19.7426 5.75736 20.75 7 20.75H8.75C9.99264 20.75 11 19.7426 11 18.4999V5.5C11 4.25736 9.99264 3.25 8.75 3.25H7ZM6.25 5.5C6.25 5.08579 6.58579 4.75 7 4.75H8.75C9.16421 4.75 9.5 5.08579 9.5 5.5V18.4999C9.5 18.9142 9.16421 19.2499 8.75 19.2499H7C6.58579 19.2499 6.25 18.9142 6.25 18.4999V5.5Z"
+                      fill="#fff"
+                    />
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M16.25 3.25C15.0074 3.25 14 4.25736 14 5.5V18.4999C14 19.7426 15.0074 20.75 16.25 20.75H18C19.2426 20.75 20.25 19.7426 20.25 18.4999V5.5C20.25 4.25736 19.2426 3.25 18 3.25H16.25ZM15.5 5.5C15.5 5.08579 15.8358 4.75 16.25 4.75H18C18.4142 4.75 18.75 5.08579 18.75 5.5V18.4999C18.75 18.9142 18.4142 19.2499 18 19.2499H16.25C15.8358 19.2499 15.5 18.9142 15.5 18.4999V5.5Z"
+                      fill="#fff"
+                    />
+                  </svg>
+                </Button>
+              ) : (
+                <Button
+                  className="hover:rounded-[5px] w-7 h-7 text-white flex justify-center items-center  cursor-pointer"
+                  onClick={videoStarted ? handleResume : handleStart}
+                  disabled={!videoPoseLandmarker || !webcamPoseLandmarker}
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 25 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    transform="rotate(0 0 0)"
+                  >
+                    <path
+                      d="M19.4357 13.9174C20.8659 13.0392 20.8659 10.9608 19.4357 10.0826L9.55234 4.01389C8.05317 3.09335 6.125 4.17205 6.125 5.93128L6.125 18.0688C6.125 19.828 8.05317 20.9067 9.55234 19.9861L19.4357 13.9174ZM18.6508 11.3609C19.1276 11.6536 19.1276 12.3464 18.6508 12.6391L8.76745 18.7079C8.26772 19.0147 7.625 18.6552 7.625 18.0688L7.625 5.93128C7.625 5.34487 8.26772 4.9853 8.76745 5.29215L18.6508 11.3609Z"
+                      fill="#fff"
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </Button>
+              )}
+            </div>
+            <div className="flex justify-start items-center gap-6">
+              <p className="text-custom-on-surface-container text-[12px]">
+                Speed:
+              </p>
+              <ElasticSlider
+                leftIcon={
+                  <RiSpeedUpFill className="text-custom-on-surface-container " />
+                }
+                // rightIcon={<>...your icon...</>}
+                startingValue={0}
+                defaultValue={100}
+                maxValue={200}
+                isStepped={false}
+                // stepSize={10}
+                onValueChange={(value) => handleAdjustSpeed(value / 100)}
+              />
+            </div>
+          </div>
+          <div className="w-[50%] h-full flex justify-start items-center gap-2">
+            {/* <p className="text-custom-on-surface-container">Webcam:</p> */}
+            {webcamDevices && (
+              <Select
+                value={selectedDeviceId || webcamDevices[0]?.deviceId}
+                onValueChange={(value) => setSelectedDeviceId(value)}
+              >
+                <SelectTrigger className="w-[180px] cursor-pointer h-full">
+                  <SelectValue placeholder="Select a webcam" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Devies</SelectLabel>
+                    {webcamDevices.length > 0 &&
+                      webcamDevices.map((device) => (
+                        <SelectItem
+                          key={device.deviceId}
+                          value={device.deviceId}
+                          className="cursor-pointer"
+                        >
+                          {device.label || `Device ${device.deviceId}`}
+                        </SelectItem>
+                      ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </div>
+
+        <div className="w-full flex flex-col justify-start items-start gap-2 my-2">
+          {/* FPS Chart */}
+          <div className="w-full">
+            <FpsChart
+              videoDetectedKeypointsRef={videoDetectedKeypointsRef}
+              webcamDetectedKeypointsRef={webcamDetectedKeypointsRef}
+              videoPlaying={videoPlaying}
+            />
+          </div>
+
+          {/* Add the ThinkingAnimation component */}
+          <div className="w-full">
+            <ThinkingAnimation
+              isThinking={isThinking}
+              updateKeypoints={(callback) => {
+                updateKeypointsRef.current = callback;
+              }}
+            />
+          </div>
+        </div>
+      </div>
       <Toaster />
     </div>
   );
