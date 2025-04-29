@@ -270,6 +270,14 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
   };
 
   const setupVideo = () => {
+    console.log(
+      "videoRef.current:",
+      videoRef.current,
+      "videoStarted:",
+      videoStarted,
+      "decodedVideoUrl:",
+      decodedVideoUrl
+    );
     if (videoRef.current && !videoStarted) {
       videoRef.current.src = decodedVideoUrl;
       console.log("Video source set to:", videoRef.current.src);
@@ -1299,4 +1307,3 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
 };
 
 export default Page;
-
