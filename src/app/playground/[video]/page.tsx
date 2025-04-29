@@ -14,7 +14,9 @@ export async function generateStaticParams() {
 
 const Page = async ({ params }: { params: Promise<{ video: string }> }) => {
   const { video } = await params;
-  return <Playground video={video}/>;
+  return (
+    <div>{video}</div>
+  );
 };
 
 export default Page;
