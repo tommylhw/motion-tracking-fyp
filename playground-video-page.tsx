@@ -1,3 +1,26 @@
+// import React from "react";
+
+// // component
+// import Playground from "@/components/Playground";
+
+// export async function generateStaticParams() {
+//   // Replace this with your logic to fetch possible video IDs
+//   const videos = ["video1", "video2", "video3"]; // Example: list of video IDs
+
+//   return videos.map((video) => ({
+//     video: video, // Maps to the [video] dynamic segment
+//   }));
+// }
+
+// const Page = async ({ params }: { params: Promise<{ video: string }> }) => {
+//   const { video } = await params;
+//   return (
+//     <Playground video={video}/>
+//   );
+// };
+
+// export default Page;
+
 "use client";
 import React, { use, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -77,19 +100,13 @@ type WEBCAM_DETECTED_KEYPOINTS_TYPE = {
   kpts: WEBCAM_KEYPOINT_TYPE[];
 };
 
-// Type for RMS and Score metrics
-type MetricsType = {
-  max_distance: number;
-  min_distance: number;
-  mean_distance: number;
-  median_distance: number;
-  std_distance: number;
-  overall_rms: number;
-  percentage_low_rms: number;
-  matching_quality: string;
-  overall_quality: string;
-  overall_score: number;
-};
+// Define the type for a MediaPipe landmark
+// type LANDMARK_TYPE = {
+//   x: number;
+//   y: number;
+//   z: number;
+//   visibility?: number;
+// };
 
 const Page = ({ params }: { params: Promise<{ video: string }> }) => {
   const router = useRouter();
@@ -107,6 +124,9 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
   const webcamCanvasRef = useRef<HTMLCanvasElement>(null);
   const [webcamDevices, setWebcamDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  // const [resizedVideoWidth, setResizedVideoWidth] = useState<number>(720);
+  // const [resizedVideoHeight, setResizedVideoHeight] = useState<number>(405);
+  // const [videoAspectRatio, setVideoAspectRatio] = useState<number>(16 / 9);
 
   const resizedVideoWidth = useRef<number>(720);
   const resizedVideoHeight = useRef<number>(405);
@@ -127,155 +147,91 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
   const videoLastTimestampRef = useRef<number>(performance.now());
   const webcamLastTimestampRef = useRef<number>(performance.now());
 
+  // const [videoDetectedKeypoints, setVideoDetectedKeypoints] = useState<any[]>(
+  //   []
+  // );
+  // const [webcamDetectedKeypoints, setWebcamDetectedKeypoints] = useState<any[]>(
+  //   []
+  // );
+  
   const videoDetectedKeypointsRef = useRef<VIDEO_DETECTED_KEYPOINTS_TYPE[]>([]);
-  const webcamDetectedKeypointsRef = useRef<WEBCAM_DETECTED_KEYPOINTS_TYPE[]>([]);
+  const webcamDetectedKeypointsRef = useRef<WEBCAM_DETECTED_KEYPOINTS_TYPE[]>(
+    []
+  );
 
   const [videoPlaying, setVideoPlaying] = useState(false);
-  const [videoStarted, setVideoStarted] = useState(false);
+  const [videoStarted, setVideoStarted] = useState(false); // Tracks if video has been started
+
   const [webcamRunning, setWebcamRunning] = useState(false);
 
+  // State to control the ThinkingAnimation
   const [isThinking, setIsThinking] = useState(true);
+
+  // Ref to store the update function from ThinkingAnimation
   const updateKeypointsRef = useRef<
     (keypoints: VIDEO_DETECTED_KEYPOINTS_TYPE[]) => void
   >(() => {});
 
-  // Metrics state
-  const [metrics, setMetrics] = useState<MetricsType>({
-    max_distance: 0,
-    min_distance: 0,
-    mean_distance: 0,
-    median_distance: 0,
-    std_distance: 0,
-    overall_rms: 0,
-    percentage_low_rms: 0,
-    matching_quality: "N/A",
-    overall_quality: "N/A",
-    overall_score: 0,
-  });
-
+  // Update isThinking based on videoPlaying
   useEffect(() => {
     setIsThinking(videoPlaying);
   }, [videoPlaying]);
 
-  const calculateRmsAndScore = (
-    keypoints: WEBCAM_DETECTED_KEYPOINTS_TYPE[]
-  ): MetricsType => {
-    // Collect all valid distances
-    const distances = keypoints
-      .flatMap((frame) => frame.kpts)
-      .filter(
-        (kpt) =>
-          kpt.distance !== null &&
-          kpt.distance !== undefined &&
-          isFinite(kpt.distance)
-      )
-      .map((kpt) => kpt.distance!);
+  /* // START: customize detection keypoints drawing
+  // Define left and right side indices
+  const leftSideIndices = [11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31]; // Left shoulder, elbow, wrist, hip, knee, ankle, heel, foot
+  const rightSideIndices = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32]; // Right shoulder, elbow, wrist, hip, knee, ankle, heel, foot
 
-    if (distances.length === 0) {
-      return {
-        max_distance: 0,
-        min_distance: 0,
-        mean_distance: 0,
-        median_distance: 0,
-        std_distance: 0,
-        overall_rms: 0,
-        percentage_low_rms: 0,
-        matching_quality: "N/A",
-        overall_quality: "N/A",
-        overall_score: 0,
-      };
-    }
+  // Hardcoded pose connections (based on BlazePose topology)
+  const POSE_CONNECTIONS: [number, number][] = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 7], // Face left
+    [0, 4],
+    [4, 5],
+    [5, 6],
+    [6, 8], // Face right
+    [9, 10], // Mouth
+    [11, 12], // Shoulders
+    [11, 13],
+    [13, 15], // Left arm
+    [12, 14],
+    [14, 16], // Right arm
+    [11, 23],
+    [12, 24], // Shoulders to hips
+    [23, 24], // Hips
+    [23, 25],
+    [25, 27],
+    [27, 29],
+    [29, 31], // Left leg
+    [24, 26],
+    [26, 28],
+    [28, 30],
+    [30, 32], // Right leg
+    [15, 17],
+    [17, 19],
+    [15, 21], // Left hand
+    [16, 18],
+    [18, 20],
+    [16, 22], // Right hand
+  ];
 
-    // Calculate statistics
-    const max_distance = Math.max(...distances);
-    const min_distance = Math.min(...distances);
-    const mean_distance = distances.reduce((sum, d) => sum + d, 0) / distances.length;
-
-    // Median calculation
-    const sortedDistances = [...distances].sort((a, b) => a - b);
-    const mid = Math.floor(sortedDistances.length / 2);
-    const median_distance =
-      sortedDistances.length % 2 === 0
-        ? (sortedDistances[mid - 1] + sortedDistances[mid]) / 2
-        : sortedDistances[mid];
-
-    // Standard deviation
-    const variance =
-      distances.reduce((sum, d) => sum + Math.pow(d - mean_distance, 2), 0) /
-      distances.length;
-    const std_distance = Math.sqrt(variance);
-
-    // RMS
-    const overall_rms = mean_distance; // Simplified, as in demo.py
-
-    // Percentage of low RMS keypoints
-    const threshold = 80; // Pixel threshold
-    const low_rms_count = distances.filter((d) => d <= threshold).length;
-    const total_keypoints = distances.length;
-    const percentage_low_rms = (low_rms_count / total_keypoints) * 100;
-
-    // Matching quality
-    let matching_quality: string;
-    if (percentage_low_rms > 80) {
-      matching_quality = "Perfect matching";
-    } else if (percentage_low_rms >= 50) {
-      matching_quality = "Good matching";
-    } else if (percentage_low_rms >= 30) {
-      matching_quality = "Not matching enough";
-    } else {
-      matching_quality = "Poor matching";
-    }
-
-    // Overall quality
-    const overall_rms_threshold = 40; // Pixel threshold
-    let overall_quality: string;
-    if (overall_rms <= overall_rms_threshold) {
-      overall_quality = "Overall perfect";
-    } else if (overall_rms <= 60) {
-      overall_quality = "Overall not bad";
-    } else {
-      overall_quality = "Overall poor";
-    }
-
-    // Calculate overall score
-    const match_percentages = keypoints
-      .filter((frame) => frame.kpts.length > 0)
-      .map((frame) => {
-        const matched_count = frame.kpts.filter(
-          (kpt) => kpt.distance !== null && kpt.distance <= 80
-        ).length;
-        const total_kpts = frame.kpts.filter(
-          (kpt) => kpt.visibility !== undefined && kpt.visibility > 0.5
-        ).length;
-        return total_kpts > 0 ? (matched_count / total_kpts) * 100 : 0;
-      });
-    const overall_score = match_percentages.length > 0
-      ? Math.round(
-          match_percentages.reduce((sum, p) => sum + p, 0) / match_percentages.length
-        )
-      : 0;
-
-    return {
-      max_distance,
-      min_distance,
-      mean_distance,
-      median_distance,
-      std_distance,
-      overall_rms,
-      percentage_low_rms,
-      matching_quality,
-      overall_quality,
-      overall_score,
-    };
-  };
-
-  // Update metrics when keypoints change
-  useEffect(() => {
-    if (webcamDetectedKeypointsRef.current.length > 0 && videoPlaying) {
-      const newMetrics = calculateRmsAndScore(webcamDetectedKeypointsRef.current);
-      // setMetrics(newMetrics);
-    }
-  }, [webcamDetectedKeypointsRef.current, videoPlaying]);
+  // Compute connections once
+  const leftConnections = POSE_CONNECTIONS.filter(
+    ([start, end]) =>
+      leftSideIndices.includes(start) && leftSideIndices.includes(end)
+  ).map(([start, end]) => ({ start, end }));
+  const rightConnections = POSE_CONNECTIONS.filter(
+    ([start, end]) =>
+      rightSideIndices.includes(start) && rightSideIndices.includes(end)
+  ).map(([start, end]) => ({ start, end }));
+  const neutralConnections = POSE_CONNECTIONS.filter(
+    ([start, end]) =>
+      !(leftSideIndices.includes(start) && leftSideIndices.includes(end)) &&
+      !(rightSideIndices.includes(start) && rightSideIndices.includes(end))
+  ).map(([start, end]) => ({ start, end }));
+  // END: customize detection keypoints drawing */
 
   const createPoseLandmarker = async (type: "video" | "webcam") => {
     try {
@@ -286,6 +242,10 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
 
       const modelLiteUrl =
         "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task";
+      // const modelFullUrl =
+      //   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task";
+      // const modelHeavyUrl =
+      //   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task";
       const landmarker = await PoseLandmarker.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath: modelLiteUrl,
@@ -314,6 +274,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
     if (videoRef.current && !videoStarted) {
       videoRef.current.src = decodedVideoUrl;
       console.log("Video source set to:", videoRef.current.src);
+      // setVideoDetectedKeypoints([]);
       videoDetectedKeypointsRef.current = [];
 
       videoRef.current.onloadeddata = () => {
@@ -335,6 +296,9 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
           newWidth = maxWidth;
           newHeight = maxWidth / aspectRatio;
         }
+        // setVideoAspectRatio(aspectRatio);
+        // setResizedVideoWidth(newWidth);
+        // setResizedVideoHeight(newHeight);
 
         resizedVideoWidth.current = newWidth;
         resizedVideoHeight.current = newHeight;
@@ -356,6 +320,8 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
           dimension: videoAspectRatio.current,
         });
       };
+
+      // setupWebcam();
 
       videoRef.current.onended = () => {
         console.log("Video ended, stopping prediction");
@@ -406,12 +372,14 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
       throw new Error("Webcam or canvas element not initialized");
     }
 
+    // Ensure webcam devices are populated
     if (!webcamDevices.length) {
       console.log("setupWebcam: No webcam devices found, fetching devices...");
       await getWebcamDevices();
     }
 
-    const deviceId = selectedDeviceId || (await getWebcamDevices().then((devices) => devices![0].deviceId));
+    // Use selectedDeviceId or fall back to the first device's ID
+    const deviceId = selectedDeviceId || await getWebcamDevices().then(devices => devices![0].deviceId);
     console.log("setupWebcam: Using device ID:", deviceId);
 
     if (webcamRef.current && webcamCanvasRef.current) {
@@ -419,9 +387,9 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
       const constraints = {
         video: {
           deviceId: deviceId ? { exact: deviceId } : undefined,
-          width: resizedVideoWidth.current,
-          height: resizedVideoHeight.current,
-          aspectRatio: { exact: videoAspectRatio.current },
+          width: resizedVideoWidth.current, // Force exact width
+          height: resizedVideoHeight.current, // Force exact height
+          aspectRatio: { exact: videoAspectRatio.current }, // Force exact aspect ratio
         },
       };
       console.log("Webcam constraints:", constraints);
@@ -430,6 +398,8 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
         .then((stream) => {
           webcamRef.current!.srcObject = stream;
           webcamRef.current!.play();
+
+          // setWebcamDetectedKeypoints([]);
           webcamDetectedKeypointsRef.current = [];
           console.log("Webcam ready");
         })
@@ -508,10 +478,54 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
       }
 
       for (const landmarks of result.landmarks) {
+        // Ensure landmarks is an array before filtering
         if (!Array.isArray(landmarks)) {
           console.error("Landmarks is not an array:", landmarks);
-          continue;
+          continue; // Skip this iteration
         }
+
+        /*         // START: Separate landmarks into left, right, and neutral
+        const leftLandmarks = landmarks.filter((_, index) =>
+          leftSideIndices.includes(index)
+        );
+        drawingUtils.drawLandmarks(leftLandmarks, {
+          radius: (data) => DrawingUtils.lerp(data.from!.z, -0.15, 0.1, 5, 1),
+          color: "rgba(121, 192, 255, 0.7)",
+          lineWidth: 1,
+        });
+        drawingUtils.drawConnectors(landmarks, leftConnections, {
+          color: "rgba(121, 192, 255, 0.7)",
+          lineWidth: 2,
+        });
+
+        const rightLandmarks = landmarks.filter((_, index) =>
+          rightSideIndices.includes(index)
+        );
+        drawingUtils.drawLandmarks(rightLandmarks, {
+          radius: (data) => DrawingUtils.lerp(data.from!.z, -0.15, 0.1, 5, 1),
+          color: "rgba(242, 165, 88, 0.7)",
+          lineWidth: 1,
+        });
+        drawingUtils.drawConnectors(landmarks, rightConnections, {
+          color: "rgba(242, 165, 88, 0.7)",
+          lineWidth: 2,
+        });
+
+        const neutralLandmarks = landmarks.filter(
+          (_, index) =>
+            !leftSideIndices.includes(index) &&
+            !rightSideIndices.includes(index)
+        );
+        drawingUtils.drawLandmarks(neutralLandmarks, {
+          radius: (data) => DrawingUtils.lerp(data.from!.z, -0.15, 0.1, 5, 1),
+          color: "#fff",
+          lineWidth: 1,
+        });
+        drawingUtils.drawConnectors(landmarks, neutralConnections, {
+          color: "#fff",
+          lineWidth: 2,
+        });
+        // END: Separate landmarks into left, right, and neutral */
 
         drawingUtils.drawLandmarks(landmarks, {
           radius: (data) => DrawingUtils.lerp(data.from!.z, -0.15, 0.1, 5, 1),
@@ -528,12 +542,13 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
         );
       }
 
+      // Calculate average FPS
       const prevKeypoints = videoDetectedKeypointsRef.current;
       const prevAvgFps =
         prevKeypoints.length > 0
           ? parseFloat(prevKeypoints[prevKeypoints.length - 1].avg_fps)
           : 0;
-      const frameCount = frame_id + 1;
+      const frameCount = frame_id + 1; // frame_id starts at 0, so +1 gives total frames
       const avg_fps =
         frameCount === 1 ? fps : prevAvgFps + (fps - prevAvgFps) / frameCount;
 
@@ -563,6 +578,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
             : [],
       };
 
+      // Draw angles using imported function
       if (keypoints_data.kpts.length > 0) {
         drawAngles(
           canvasCtx,
@@ -572,12 +588,15 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
         );
       }
 
+      // console.log("video keypoints:", keypoints_data);
+      // setVideoDetectedKeypoints((prev) => [...prev, keypoints_data]);
       videoDetectedKeypointsRef.current = [
         ...videoDetectedKeypointsRef.current,
         keypoints_data,
       ];
       videoLastFrameIdRef.current = frame_id;
 
+      // Update ThinkingAnimation imperatively, throttling to every 5 frames
       if (frame_id % 1 == 0) {
         updateKeypointsRef.current(videoDetectedKeypointsRef.current);
       }
@@ -585,9 +604,11 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
       canvasCtx.restore();
     });
 
+    // Only schedule next frame if video is playing
     if (!videoRef.current.paused && !videoRef.current.ended) {
       videoRafIdRef.current = requestAnimationFrame(() => {
         predictVideo(frame_id + 1);
+        // predictWebcam(frame_id + 1);
       });
     }
   };
@@ -613,6 +634,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
     const drawingUtils = new DrawingUtils(canvasCtx);
     const nowInMs = performance.now();
 
+    // Calculate FPS
     const deltaTime = nowInMs - webcamLastTimestampRef.current;
     const fps = 1000 / deltaTime;
     webcamLastTimestampRef.current = nowInMs;
@@ -629,6 +651,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
           webcamCanvasRef.current!.height
         );
 
+        // Draw video skeleton (blue, semi-transparent) using matching frame_id
         const skeletonKeypoint = videoDetectedKeypointsRef.current.find(
           (k) => k.frame_id == frame_id
         );
@@ -640,6 +663,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
             z: kpt.normalized_coords[2],
             visibility: kpt.visibility,
           }));
+          // console.log("skeleton landmarks:", landmarks);
           drawingUtils.drawLandmarks(landmarks, {
             radius: (data) => DrawingUtils.lerp(data.from!.z, -0.15, 0.1, 5, 1),
             color: "rgba(152, 152, 154, 0.3)",
@@ -659,12 +683,13 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
           console.warn("WEBCAM: No landmarks detected in this frame");
         }
 
-        const distances: { [kpt_id: number]: number } = {};
+        const distances: { [kpt_id: number]: number } = {}; // Store distances per keypoint ID
 
         for (const landmarks of webcamResult.landmarks) {
+          // Ensure landmarks is an array before filtering
           if (!Array.isArray(landmarks)) {
             console.error("Landmarks is not an array:", landmarks);
-            continue;
+            continue; // Skip this iteration
           }
 
           drawingUtils.drawLandmarks(landmarks, {
@@ -681,15 +706,95 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
             }
           );
 
+          /* // START: Separate landmarks into left, right, and neutral
+          const leftLandmarks = landmarks.filter((_, index) =>
+            leftSideIndices.includes(index)
+          );
+          drawingUtils.drawLandmarks(leftLandmarks, {
+            radius: (data) => DrawingUtils.lerp(data.from!.z, -0.15, 0.1, 5, 1),
+            color: "rgba(121, 192, 255, 0.7)",
+            lineWidth: 1,
+          });
+          drawingUtils.drawConnectors(landmarks, leftConnections, {
+            color: "rgba(121, 192, 255, 0.7)",
+            lineWidth: 4,
+          });
+
+          const rightLandmarks = landmarks.filter((_, index) =>
+            rightSideIndices.includes(index)
+          );
+          drawingUtils.drawLandmarks(rightLandmarks, {
+            radius: (data) => DrawingUtils.lerp(data.from!.z, -0.15, 0.1, 5, 1),
+            color: "rgba(242, 165, 88, 0.7)",
+            lineWidth: 1,
+          });
+          drawingUtils.drawConnectors(landmarks, rightConnections, {
+            color: "rgba(242, 165, 88, 0.7)",
+            lineWidth: 4,
+          });
+
+          const neutralLandmarks = landmarks.filter(
+            (_, index) =>
+              !leftSideIndices.includes(index) &&
+              !rightSideIndices.includes(index)
+          );
+          drawingUtils.drawLandmarks(neutralLandmarks, {
+            radius: (data) => DrawingUtils.lerp(data.from!.z, -0.15, 0.1, 5, 1),
+            color: "#fff",
+            lineWidth: 1,
+          });
+          drawingUtils.drawConnectors(landmarks, neutralConnections, {
+            color: "#fff",
+            lineWidth: 2,
+          });
+          // END: Separate landmarks into left, right, and neutral */
+
+          /* // START: Calculate distances and draw colored dots on the webcam tracking
+          if (skeletonKeypoint && skeletonKeypoint.kpts.length > 0) {
+            const webcamKpts = webcamResult.landmarks[0];
+            const skeletonKpts = skeletonKeypoint.kpts;
+
+            webcamKpts.forEach((webcamKpt: any, index: number) => {
+              const skeletonKpt = skeletonKpts.find(
+                (kpt: any) => kpt.kpt_id === index
+              );
+              if (skeletonKpt) {
+                const webcamX = webcamKpt.x * webcamRef.current!.videoWidth;
+                const webcamY = webcamKpt.y * webcamRef.current!.videoHeight;
+                const skeletonX = skeletonKpt.coords[0]; // Already in pixel coords
+                const skeletonY = skeletonKpt.coords[1];
+
+                // Calculate Euclidean distance in pixels
+                const distance = Math.sqrt(
+                  Math.pow(webcamX - skeletonX, 2) +
+                    Math.pow(webcamY - skeletonY, 2)
+                );
+                distances[index] = distance;
+
+                // Draw dot with color based on distance
+                const color = distance < 80 ? "rgba(96, 237, 40, 1)" : "rgba(229, 37, 8, 1)";
+                canvasCtx.beginPath();
+                canvasCtx.arc(webcamX, webcamY, 5, 0, 2 * Math.PI); // 5px radius dot
+                canvasCtx.fillStyle = color;
+                canvasCtx.fill();
+                canvasCtx.closePath();
+              }
+            });
+          } 
+          // END: Calculate distances and draw colored dots on the webcam tracking  
+          */
+
+          // Calculate distances and draw dots on skeleton keypoints
           const skeletonKpts = skeletonKeypoint ? skeletonKeypoint.kpts : [];
 
           if (skeletonKpts.length > 0) {
             skeletonKpts.forEach((skeletonKpt) => {
-              const skeletonX = skeletonKpt.coords[0];
+              const skeletonX = skeletonKpt.coords[0]; // Pixel coords from predictVideo
               const skeletonY = skeletonKpt.coords[1];
               const kptId = skeletonKpt.kpt_id;
 
-              const webcamKptRaw = webcamResult.landmarks[0][kptId];
+              // Find matching webcam keypoint
+              const webcamKptRaw = webcamResult.landmarks[0][kptId]; // Direct index access
               let distance: number;
 
               if (webcamKptRaw) {
@@ -705,6 +810,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
 
               distances[kptId] = isFinite(distance) ? distance : 9999;
 
+              // Draw dot on skeleton keypoint
               const color =
                 distance < 20 ? "rgba(96, 237, 40, 1)" : "rgba(229, 37, 8, 1)";
 
@@ -724,12 +830,13 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
             });
           }
 
+          // Calculate average FPS
           const prevKeypoints = webcamDetectedKeypointsRef.current;
           const prevAvgFps =
             prevKeypoints.length > 0
               ? parseFloat(prevKeypoints[prevKeypoints.length - 1].avg_fps)
               : 0;
-          const frameCount = frame_id + 1;
+          const frameCount = frame_id + 1; // frame_id starts at 0, so +1 gives total frames
           const avg_fps =
             frameCount === 1
               ? fps
@@ -750,6 +857,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
               webcamResult.landmarks.length > 0 &&
               webcamResult.landmarks[0]
                 ? webcamResult.landmarks[0].map((landmark, index) => {
+                    // Safely find the matching skeleton keypoint
                     const matchingSkeletonKpt = skeletonKeypoint?.kpts.find(
                       (kpt) => kpt.kpt_id === index
                     );
@@ -775,7 +883,8 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
                   })
                 : [],
           };
-
+          // console.log("webcam keypoints:", keypoints_data);
+          // setWebcamDetectedKeypoints((prev) => [...prev, keypoints_data]);
           webcamDetectedKeypointsRef.current = [
             ...webcamDetectedKeypointsRef.current,
             keypoints_data,
@@ -787,8 +896,10 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
       }
     );
 
+    // Only schedule next frame if video is playing
     if (!videoRef.current!.paused && !videoRef.current!.ended) {
       webcamRafIdRef.current = requestAnimationFrame(() => {
+        // predictVideo(frame_id + 1);
         predictWebcam(frame_id + 1);
       });
     }
@@ -823,6 +934,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
           );
         }
       } else {
+        // resume
         if (videoRef.current && webcamRef.current) {
           videoRef.current.playbackRate = videoSpeed.current;
           Promise.all([videoRef.current.play(), webcamRef.current.play()])
@@ -890,8 +1002,10 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
 
   const initialize = async () => {
     try {
+      // 1. Handle video URL
       if (!decodedVideoUrl) throw new Error("No video URL provided");
 
+      // 2. Initialize PoseLandmarkers
       if (!videoPoseLandmarker && !webcamPoseLandmarker) {
         console.log("Initializing PoseLandmarkers...");
         await Promise.all([
@@ -900,12 +1014,14 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
         ]);
       }
 
+      // 3. Get webcam devices and set initial device ID
       console.log("initialize: Fetching webcam devices...");
       await getWebcamDevices();
       if (webcamDevices.length > 0 && !selectedDeviceId) {
         setSelectedDeviceId(webcamDevices[0].deviceId);
       }
 
+      // 4. Setup video and webcam
       console.log("Setting up video and webcam...");
       console.table({
         videoRef: videoRef.current,
@@ -916,8 +1032,9 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
 
       await setupVideo();
       await setupWebcam();
-      setIsLoading(false);
+      setIsLoading(false); // All dependencies are ready
     } catch (err: unknown) {
+      // Narrow the type of err to Error to safely access err.message
       const errorMessage =
         err instanceof Error ? err.message : "An unknown error occurred";
       console.error("Initialization error:", err);
@@ -925,10 +1042,11 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
       if (errorMessage.includes("Blob URL expired or invalid")) {
         router.push("/");
       }
-      setIsLoading(false);
+      setIsLoading(false); // Show error state even if loading fails
     }
   };
 
+  // Centralized loading logic
   useEffect(() => {
     setIsLoading(true);
 
@@ -938,11 +1056,15 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
         initialize();
       } else {
         console.log("ref is null, polling...");
-        setTimeout(checkRef, 1000);
+        setTimeout(checkRef, 1000); // Poll every 100ms
       }
     };
 
     checkRef();
+
+    // setTimeout(() => {
+    //   initialize();
+    // }, 2000);
 
     return () => {
       if (videoRafIdRef.current) cancelAnimationFrame(videoRafIdRef.current);
@@ -955,6 +1077,13 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
     };
   }, [decodedVideoUrl]);
 
+  // useEffect(() => {
+  //   const switchWebcam = async () => {
+  //     setupWebcam();
+  //   };
+  //   switchWebcam();
+  // }, [selectedDeviceId]);
+
   useEffect(() => {
     if (selectedDeviceId && webcamDevices.length > 0) {
       console.log("useEffect: Switching webcam to device ID:", selectedDeviceId);
@@ -962,6 +1091,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
     }
   }, [selectedDeviceId, webcamDevices]);
 
+  // Update decodedVideoUrl when encodedVideoUrl changes
   useEffect(() => {
     if (encodedVideoUrl) {
       const newDecodedUrl = decodeURIComponent(encodedVideoUrl);
@@ -975,6 +1105,59 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
     }
   }, [error]);
 
+  /* useEffect(() => {
+    setupWebcam();
+  }, [selectedDeviceId]);
+
+  useEffect(() => {
+    if (videoPoseLandmarker && webcamPoseLandmarker && decodedVideoUrl) {
+      setupVideo();
+      setupWebcam();
+    }
+  }, [videoPoseLandmarker, webcamPoseLandmarker, decodedVideoUrl]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    if (encodedVideoUrl && videoRef.current) {
+      console.log("Video source set to:", decodeURIComponent(encodedVideoUrl));
+      setDecodedVideoUrl(decodeURIComponent(encodedVideoUrl));
+      videoRef.current.src = decodeURIComponent(encodedVideoUrl);
+      videoRef.current
+        .play()
+        .catch((err) => console.error("Video play error:", err));
+    }
+    setIsLoading(false);
+  }, [encodedVideoUrl, decodedVideoUrl]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    Promise.all([createPoseLandmarker("video"), createPoseLandmarker("webcam")])
+      .then(() => setIsLoading(false))
+      .catch((err) =>
+        console.error("Error initializing PoseLandmarkers:", err)
+      );
+    getWebcamDevices();
+
+    return () => {
+      if (videoRafIdRef.current) cancelAnimationFrame(videoRafIdRef.current);
+      if (webcamRafIdRef.current) cancelAnimationFrame(webcamRafIdRef.current);
+      if (webcamRef.current && webcamRef.current.srcObject) {
+        (webcamRef.current.srcObject as MediaStream)
+          .getTracks()
+          .forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    setIsLoading(true);
+    if (error == "Blob URL expired or invalid") {
+      router.push("/");
+    } else {
+      setIsLoading(false);
+    }
+  }, [error]); */
+
   return (
     <div className="flex justify-center items-start">
       {isLoading && (
@@ -987,6 +1170,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
             aria-label="Loading Spinner"
             data-testid="loader"
             className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+            // cssOverride={{ display: "block", margin: "0 auto" }}
           />
         </div>
       )}
@@ -997,14 +1181,15 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
           display: isLoading ? "none" : "flex",
         }}
       >
-        <div className="w-full flex items-start justify-center gap-4">
+        {/* Video and Webcam display */}
+        <div className=" w-full flex items-start justify-center gap-4">
           <div className="relative w-[50%] shadow-(--shadow-custom-light) rounded-md">
             <video
               ref={videoRef}
-              width={resizedVideoWidth.current}
-              height={resizedVideoHeight.current}
+              width={resizedVideoWidth.current} // Bind to state
+              height={resizedVideoHeight.current} // Bind to state
               playsInline
-              className="rounded-md"
+              className="rounded-md "
             />
             <canvas
               ref={canvasRef}
@@ -1016,19 +1201,20 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
           <div className="relative w-[50%] shadow-(--shadow-custom-light) rounded-md">
             <video
               ref={webcamRef}
-              width={resizedVideoWidth.current}
-              height={resizedVideoHeight.current}
+              width={resizedVideoWidth.current} // Bind to state
+              height={resizedVideoHeight.current} // Bind to state
               playsInline
               className="rounded-md"
             />
             <canvas
               ref={webcamCanvasRef}
-              width={resizedVideoWidth.current}
-              height={resizedVideoHeight.current}
-              className="absolute top-0 left-0 w-full h-full rounded-md"
+              width={resizedVideoWidth.current} // Bind to state
+              height={resizedVideoHeight.current} // Bind to state
+              className="absolute top-0 left-0 w-full h-full rounded-md "
             />
           </div>
         </div>
+        {/* Video and Webcam controls */}
         <div className="w-full flex justify-center items-center gap-2 mt-1">
           <div className="w-[50%] h-full flex justify-between items-center gap-2 bg-custom-surface rounded-md px-[6px] border-1">
             <div>
@@ -1061,7 +1247,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
                 </Button>
               ) : (
                 <Button
-                  className="hover:rounded-[5px] w-7 h-7 text-white flex justify-center items-center cursor-pointer"
+                  className="hover:rounded-[5px] w-7 h-7 text-white flex justify-center items-center  cursor-pointer"
                   onClick={videoStarted ? handleResume : handleStart}
                   disabled={!videoPoseLandmarker || !webcamPoseLandmarker}
                 >
@@ -1089,17 +1275,20 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
               </p>
               <ElasticSlider
                 leftIcon={
-                  <RiSpeedUpFill className="text-custom-on-surface-container" />
+                  <RiSpeedUpFill className="text-custom-on-surface-container " />
                 }
+                // rightIcon={<>...your icon...</>}
                 startingValue={0}
                 defaultValue={100}
                 maxValue={200}
                 isStepped={false}
+                // stepSize={10}
                 onValueChange={(value) => handleAdjustSpeed(value / 100)}
               />
             </div>
           </div>
           <div className="w-[50%] h-full flex justify-start items-center gap-2">
+            {/* <p className="text-custom-on-surface-container">Webcam:</p> */}
             {webcamDevices && (
               <Select
                 value={selectedDeviceId || webcamDevices[0]?.deviceId}
@@ -1110,7 +1299,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Devices</SelectLabel>
+                    <SelectLabel>Devies</SelectLabel>
                     {webcamDevices.length > 0 &&
                       webcamDevices.map((device) => (
                         <SelectItem
@@ -1129,8 +1318,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
         </div>
 
         <div className="w-full flex flex-col justify-start items-start gap-2 my-2">
-          
-
+          {/* FPS Chart */}
           <div className="w-full">
             <FpsChart
               videoDetectedKeypointsRef={videoDetectedKeypointsRef}
@@ -1139,6 +1327,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
             />
           </div>
 
+          {/* Add the ThinkingAnimation component */}
           <div className="w-full">
             <ThinkingAnimation
               isThinking={isThinking}
@@ -1146,18 +1335,6 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
                 updateKeypointsRef.current = callback;
               }}
             />
-          </div>
-
-          {/* Metrics Display */}
-          <div className="w-full bg-custom-surface rounded-md p-4 shadow-md my-[8px]">
-            <h3 className="text-lg font-semibold text-custom-on-surface">
-              Tracking Result
-            </h3>
-            <div className="mt-2 text-sm text-custom-on-surface-container">
-              <p>Matching Quality: {metrics.matching_quality}</p>
-              <p>Overall RMS Quality: {metrics.overall_quality}</p>
-              <p>Overall Score: {metrics.overall_score}%</p>
-            </div>
           </div>
         </div>
       </div>

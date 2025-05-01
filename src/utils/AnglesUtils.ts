@@ -68,7 +68,7 @@ export const drawInteriorSector = (
 ): void => {
   if (!center || !ptA || !ptB || !width || !height) return; // Skip if any point is null
 
-  const radius = 10;
+  const radius = 12;
   const arcColor = "rgba(242, 165, 88, 1)"; // Orange outline
   const sectorColor = "rgba(242, 165, 88, 0.7)"; // Orange fill with transparency
 
@@ -139,10 +139,12 @@ export const drawAngles = (
   // Calculate angles
   const rArmAngle = calculateAngle(RShoulder, RElbow, RWrist);
   const lArmAngle = calculateAngle(LShoulder, LElbow, LWrist);
-  const rShoulderAngle = calculateAngle(Neck, RShoulder, RElbow);
-  const lShoulderAngle = calculateAngle(Neck, LShoulder, LElbow);
-  const rHipAngle = calculateAngle(Neck, RHip, RAnkle);
-  const lHipAngle = calculateAngle(Neck, LHip, LAnkle);
+  const rShoulderAngle = calculateAngle(LShoulder, RShoulder, RElbow);
+  const lShoulderAngle = calculateAngle(RShoulder, LShoulder, LElbow);
+  const rHipAngle = calculateAngle(RShoulder, RHip, RAnkle);
+  const lHipAngle = calculateAngle(LShoulder, LHip, LAnkle);
+  const lKneeAngle = calculateAngle(LHip, LKnee, LAnkle);
+  const rKneeAngle = calculateAngle(RHip, RKnee, RAnkle);
 
   // Calculate font scales (null checks already handled by calculateDistance returning Infinity)
   const fontScaleRArm = RElbow && RWrist ? Math.min(Math.max(calculateDistance(RElbow, RWrist) / 100, 0.5), 0.5) : 0.5;
@@ -154,8 +156,8 @@ export const drawAngles = (
 
   // Draw angles
   if (isValidPoint(RShoulder) && isValidPoint(RElbow) && isValidPoint(RWrist) && rArmAngle) {
-    drawInteriorSector(ctx, RElbow, RShoulder, RWrist, width, height);
-    drawTextWithOutline(ctx, `${rArmAngle.toFixed(1)}°`, RElbow, fontScaleRArm, 1);
+    drawInteriorSector(ctx, RElbow, RShoulder, RWrist, width, height); // center point, ptA, ptB
+    drawTextWithOutline(ctx, `${rArmAngle.toFixed(1)}°`, RElbow, fontScaleRArm, 1); // center point
   }
   if (isValidPoint(LShoulder) && isValidPoint(LElbow) && isValidPoint(LWrist) && lArmAngle) {
     drawInteriorSector(ctx, LElbow, LShoulder, LWrist, width, height);
@@ -169,12 +171,20 @@ export const drawAngles = (
     drawInteriorSector(ctx, LShoulder, RShoulder, LElbow, width, height);
     drawTextWithOutline(ctx, `${lShoulderAngle.toFixed(1)}°`, LShoulder, fontScaleLShoulder, 1);
   }
-  if (isValidPoint(RKnee) && isValidPoint(RHip) && isValidPoint(RAnkle) && rHipAngle) {
+  if (isValidPoint(RKnee) && isValidPoint(RHip) && isValidPoint(RAnkle) && rKneeAngle) {
     drawInteriorSector(ctx, RKnee, RHip, RAnkle, width, height);
-    drawTextWithOutline(ctx, `${rHipAngle.toFixed(1)}°`, RHip, fontScaleRHip, 1);
+    drawTextWithOutline(ctx, `${rKneeAngle.toFixed(1)}°`, RKnee, fontScaleRHip, 1);
   }
-  if (isValidPoint(LKnee) && isValidPoint(LHip) && isValidPoint(LAnkle) && lHipAngle) {
+  if (isValidPoint(LKnee) && isValidPoint(LHip) && isValidPoint(LAnkle) && lKneeAngle) {
     drawInteriorSector(ctx, LKnee, LHip, LAnkle, width, height);
+    drawTextWithOutline(ctx, `${lKneeAngle.toFixed(1)}°`, LKnee, fontScaleLHip, 1);
+  }
+  if (isValidPoint(LHip) && isValidPoint(LShoulder) && isValidPoint(LKnee) && lHipAngle) {
+    drawInteriorSector(ctx, LHip, LShoulder, LKnee, width, height);
     drawTextWithOutline(ctx, `${lHipAngle.toFixed(1)}°`, LHip, fontScaleLHip, 1);
+  }
+  if (isValidPoint(RHip) && isValidPoint(RShoulder) && isValidPoint(RKnee) && rHipAngle) {
+    drawInteriorSector(ctx, RHip, RShoulder, RKnee, width, height);
+    drawTextWithOutline(ctx, `${rHipAngle.toFixed(1)}°`, RHip, fontScaleRHip, 1);
   }
 };
