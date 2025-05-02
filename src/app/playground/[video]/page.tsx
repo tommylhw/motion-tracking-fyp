@@ -976,7 +976,7 @@ const Page = ({ params }: { params: Promise<{ video: string }> }) => {
   }, [error]);
 
   return (
-    <div className="flex justify-center items-start">
+    <div className="flex justify-center items-start p-[10px]">
       {isLoading && (
         <div className="w-screen h-screen flex justify-center items-center border-2">
           <PulseLoader
