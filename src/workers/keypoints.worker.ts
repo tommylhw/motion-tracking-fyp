@@ -1,66 +1,17 @@
-// keypoints.worker.ts
-import {
-  VIDEO_DETECTED_KEYPOINTS_TYPE,
-  WEBCAM_DETECTED_KEYPOINTS_TYPE,
-  WorkerMessage,
-  WorkerResponse,
-} from "../../src/lib/definitions";
+import { VIDEO_DETECTED_KEYPOINTS_TYPE, WEBCAM_DETECTED_KEYPOINTS_TYPE } from "@/lib/definitions";
 
-// Define the type for a single keypoint
-// type KEYPOINT_TYPE = {
-//   frame_id: number;
-//   kpt_id: number;
-//   normalized_coords: number[];
-//   coords: number[];
-//   visibility: number;
-// };
+interface WorkerMessage {
+  type: "process_keypoints" | "clear";
+  videoKeypoints?: VIDEO_DETECTED_KEYPOINTS_TYPE[];
+  webcamKeypoints?: WEBCAM_DETECTED_KEYPOINTS_TYPE[];
+}
 
-// // Define the main type for video detected keypoints
-// type VIDEO_DETECTED_KEYPOINTS_TYPE = {
-//   frame_id: number;
-//   resolution: number[];
-//   video_timestamp: string;
-//   fps: string;
-//   avg_fps: string;
-//   no_of_poses: number;
-//   kpts: KEYPOINT_TYPE[];
-// };
+interface WorkerResponse {
+  type: "fps_data" | "animation_data" | "skeleton_keypoints";
+  data: any;
+}
 
-// // Define the type for a single keypoint
-// type WEBCAM_KEYPOINT_TYPE = {
-//   frame_id: number;
-//   kpt_id: number;
-//   normalized_coords: number[];
-//   coords: number[];
-//   visibility: number;
-//   skeleton_normalized_coords: number[] | null;
-//   skeleton_coords: number[] | null;
-//   distance: number | null;
-// };
-
-// // Define the main type for webcam detected keypoints
-// type WEBCAM_DETECTED_KEYPOINTS_TYPE = {
-//   frame_id: number;
-//   resolution: number[];
-//   webcam_timestamp: number;
-//   fps: string;
-//   avg_fps: string;
-//   no_of_poses: number;
-//   kpts: WEBCAM_KEYPOINT_TYPE[];
-// };
-
-// interface WorkerMessage {
-//   type: "process_keypoints" | "clear";
-//   videoKeypoints?: VIDEO_DETECTED_KEYPOINTS_TYPE[];
-//   webcamKeypoints?: WEBCAM_DETECTED_KEYPOINTS_TYPE[];
-// }
-
-// interface WorkerResponse {
-//   type: "fps_data" | "animation_data";
-//   data: any;
-// }
-
-const MAX_FRAMES = 1000; // Sliding window size
+const MAX_FRAMES = 1000;
 let videoKeypoints: VIDEO_DETECTED_KEYPOINTS_TYPE[] = [];
 let webcamKeypoints: WEBCAM_DETECTED_KEYPOINTS_TYPE[] = [];
 
@@ -70,6 +21,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
   if (type === "clear") {
     videoKeypoints = [];
     webcamKeypoints = [];
+    self.postMessage({ type: "skeleton_keypoints", data: null } as WorkerResponse);
     return;
   }
 
@@ -82,6 +34,10 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
       videoKeypoints.push({ ...keypoint, avg_fps: avg_fps.toFixed(2) });
     });
     videoKeypoints = videoKeypoints.slice(-MAX_FRAMES);
+    self.postMessage({
+      type: "skeleton_keypoints",
+      data: videoKeypoints[videoKeypoints.length - 1] || null,
+    } as WorkerResponse);
   }
 
   if (newWebcamKeypoints) {
@@ -115,4 +71,9 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     type: "animation_data",
     data: animationData,
   } as WorkerResponse);
+};
+
+self.onerror = (error: any) => {
+  console.error("Worker error:", error);
+  self.postMessage({ type: "error", data: error.message });
 };

@@ -18,6 +18,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { NameType, Payload, ValueType } from "recharts/types/component/DefaultTooltipContent";
+import { eventEmitter } from "@/utils/eventEmitter";
 
 // Define the type for a single keypoint (same as in page.tsx)
 type KEYPOINT_TYPE = {
@@ -89,46 +90,28 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function FpsChart({
-  videoDetectedKeypointsRef,
-  webcamDetectedKeypointsRef,
-  videoPlaying,
-}: {
-  videoDetectedKeypointsRef: React.RefObject<VIDEO_DETECTED_KEYPOINTS_TYPE[]>;
-  webcamDetectedKeypointsRef: React.RefObject<WEBCAM_DETECTED_KEYPOINTS_TYPE[]>;
-  videoPlaying: boolean;
-}) {
-  // const [chartData, setChartData] = useState<
-  //   { frame_id: number | null; video: number | null; webcam: number | null }[]
-  // >([]);
-  
-  const scrollRef = useRef<HTMLDivElement>(null); // Ref for the scrollable div
-  // const workerRef = useRef<Worker | null>(null);
-
-  const chartDataRef = useRef<{ frame_id: number; video: number | null; webcam: number | null }[]>([]);
+export function FpsChart({ videoPlaying }: { videoPlaying: boolean }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const fpsDataRef = useRef<
+    {
+      frame_id: number;
+      video: number | null;
+      webcam: number | null;
+      video_avg_fps: number | null;
+      webcam_avg_fps: number | null;
+    }[]
+  >([]);
   const rafIdRef = useRef<number | null>(null);
   const lastUpdateRef = useRef<number>(0);
-  const UPDATE_INTERVAL = 100; // Update every 100ms (~10 FPS) for smooth
+  const UPDATE_INTERVAL = 500;
 
-  const updateChartData = () => {
-    const videoData = videoDetectedKeypointsRef.current || [];
-    const webcamData = webcamDetectedKeypointsRef.current || [];
-    const maxFrames = Math.max(videoData.length, webcamData.length);
-
-    // Only update if data has grown since last update
-    if (maxFrames > chartDataRef.current.length) {
-      const newChartData = Array.from({ length: maxFrames }, (_, index) => ({
-        frame_id: index,
-        video: videoData[index]?.fps ? parseFloat(videoData[index].fps) : null,
-        webcam: webcamData[index]?.fps ? parseFloat(webcamData[index].fps) : null,
-      }));
-      chartDataRef.current = newChartData;
-    }
-
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth; // Auto-scroll to latest data
-    }
-  };
+  useEffect(() => {
+    const handleFpsData = (data: any) => {
+      fpsDataRef.current = data;
+    };
+    eventEmitter.on("fps_data", handleFpsData);
+    return () => eventEmitter.off("fps_data", handleFpsData);
+  }, []);
 
   const animate = (timestamp: number) => {
     if (!videoPlaying) {
@@ -138,7 +121,9 @@ export function FpsChart({
 
     // Throttle updates to ~10 FPS for smoothness without overloading
     if (timestamp - lastUpdateRef.current >= UPDATE_INTERVAL) {
-      updateChartData();
+      if (scrollRef.current) {
+        scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+      }
       lastUpdateRef.current = timestamp;
     }
 
@@ -162,83 +147,7 @@ export function FpsChart({
     };
   }, [videoPlaying]);
 
-  // // Force re-render periodically only when data changes significantly
-  // const [, forceUpdate] = useRef(0); // Dummy state to trigger re-render
-  // useEffect(() => {
-  //   const renderInterval = setInterval(() => {
-  //     if (videoPlaying && chartDataRef.current.length > 0) {
-  //       forceUpdate((prev) => prev + 1); // Trigger re-render every 100ms if data exists
-  //     }
-  //   }, UPDATE_INTERVAL);
-
-  //   return () => clearInterval(renderInterval);
-  // }, [videoPlaying]);
-
-  const chartWidth = Math.max(chartDataRef.current.length * 10, 800);
-
-  /* // Update chart data on useeffect interval, but only if video is playing
-  useEffect(() => {
-    const updateChartData = () => {
-      const videoData = videoDetectedKeypointsRef.current;
-      const webcamData = webcamDetectedKeypointsRef.current;
-
-      // Merge data by frame_id, ensuring both video and webcam FPS are included
-      const maxFrames = Math.max(videoData.length, webcamData.length);
-      const newChartData = Array.from({ length: maxFrames }, (_, index) => {
-        const videoFps = videoData[index]?.fps
-          ? parseFloat(videoData[index].fps)
-          : null;
-        const webcamFps = webcamData[index]?.fps
-          ? parseFloat(webcamData[index].fps)
-          : null;
-
-        // Log FPS values for debugging
-        // if (videoFps !== null) console.log(`Frame ${index} - Video FPS: ${videoFps}`);
-        // if (webcamFps !== null) console.log(`Frame ${index} - Webcam FPS: ${webcamFps}`);
-
-        return {
-          frame_id: index,
-          video: videoFps,
-          webcam: webcamFps,
-        };
-      });
-
-      setChartData(newChartData);
-    };
-
-    // Initial update when component mounts
-    updateChartData();
-
-    let interval: NodeJS.Timeout | null = null;
-    // Start polling only if video is playing
-    if (videoPlaying) {
-      interval = setInterval(updateChartData, 2000);
-      // updateChartData();
-    }
-    // Cleanup
-    return () => {
-      if (interval) clearInterval(interval);
-      // workerRef.current?.terminate(); // Terminate worker on unmount
-    };
-  }, [videoDetectedKeypointsRef, webcamDetectedKeypointsRef, videoPlaying]);
-
-  // Scroll to the right whenever chartData updates
-  useEffect(() => {
-    const scrollDiv = scrollRef.current;
-    if (scrollDiv) {
-      scrollDiv.scrollLeft = scrollDiv.scrollWidth; // Scroll to the far right
-    }
-  }, [chartData]); // Trigger when chartData changes
-
-  // Dynamic width: 10px per frame, minimum 800px
-  const chartWidth = Math.max(chartData.length * 10, parseInt('100%', 10)); */
-
-
-  // // Custom label formatter for the tooltip title
-  // const tooltipLabelFormatter = (value: string | number, payload: CustomPayload[]) => {
-  //   const frameId = payload[0]?.payload?.frame_id; // Get frame_id from the first payload item
-  //   return `Frame ${frameId}`; // Custom title format
-  // };
+  const chartWidth = Math.max(fpsDataRef.current.length * 10, 800);
 
   return (
     <Card className="border-0 shadow-(--shadow-custom-neuromorphic)">
@@ -249,23 +158,10 @@ export function FpsChart({
         </CardDescription>
       </CardHeader>
       <div className="px-[20px] flex">
-        {/* Fixed Y-Axis Container */}
-        {/* <div className="flex-shrink-0 border-1" style={{ width: "60px", height: "280px" }}>
-          <ChartContainer config={chartConfig}>
-            <LineChart data={chartData} width={60} height={280} margin={{ left: 12, right: 0, top: 10, bottom: 10 }}>
-              <YAxis
-                domain={[0, 60]}
-                tickCount={7}
-                label={{ value: "FPS", angle: -90, position: "insideLeft" }}
-                width={60} // Match container width
-                height={280}
-              />
-            </LineChart>
-          </ChartContainer>
-        </div> */}
-        <CardContent className="overflow-x-scroll h-[300px] w-full" ref={scrollRef}>
-          {" "}
-          {/* handle overflow x */}
+        <CardContent
+          className="overflow-x-scroll h-[300px] w-full"
+          ref={scrollRef}
+        >
           <ChartContainer
             config={chartConfig}
             style={{
@@ -275,11 +171,10 @@ export function FpsChart({
           >
             <LineChart
               accessibilityLayer
-              // data={chartData}
-              data={chartDataRef.current} // Use the ref for chart data
+              data={fpsDataRef.current}
               margin={{ left: 12, right: 12, top: 10, bottom: 10 }}
-              width={chartWidth} // Explicitly set width
-              height={280} // Fixed height for the chart
+              width={chartWidth}
+              height={280}
             >
               <CartesianGrid vertical={false} />
               <XAxis
@@ -292,7 +187,6 @@ export function FpsChart({
                   position: "insideBottom",
                   offset: -10,
                 }}
-                // interval={Math.floor(chartData.length / 10) || 1} // Dynamic tick interval
               />
               <YAxis
                 domain={[0, 60]} // Reasonable FPS range
@@ -329,12 +223,21 @@ export function FpsChart({
         <div className="flex w-full items-start gap-2 text-sm">
           <div className="flex justify-between gap-2 w-full">
             <div className="flex flex-col items-start gap-2 font-medium leading-none">
-              <p>Average Video Tracking FPS: {videoDetectedKeypointsRef.current[videoDetectedKeypointsRef.current?.length - 1]?.avg_fps}</p>
-              <p>Average Real-time Tracking FPS: {webcamDetectedKeypointsRef.current[webcamDetectedKeypointsRef.current?.length - 1]?.avg_fps}</p>
+              <p>
+                Average Video Tracking FPS:{" "}
+                {fpsDataRef.current[
+                  fpsDataRef.current.length - 1
+                ]?.video_avg_fps?.toFixed(2) || "N/A"}
+              </p>
+              <p>
+                Average Real-time Tracking FPS:{" "}
+                {fpsDataRef.current[
+                  fpsDataRef.current.length - 1
+                ]?.webcam_avg_fps?.toFixed(2) || "N/A"}
+              </p>
             </div>
             <div className="flex items-center gap-2 leading-none text-muted-foreground">
-              Frame ID range: 0 - {videoDetectedKeypointsRef.current[videoDetectedKeypointsRef.current?.length - 1]?.frame_id}
-              {/* Frame ID range: 0 - {chartDataRef.current.length - 1 || 0} */}
+              Frame ID range: 0 - {fpsDataRef.current.length - 1 || 0}
             </div>
           </div>
         </div>
